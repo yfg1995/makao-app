@@ -7,7 +7,7 @@ const API_BASE = RAW_BASE ? `${RAW_BASE}/api` : '/api';
 export const api: AxiosInstance = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
-  withCredentials: true,
+  withCredentials: false,
 });
 
 api.interceptors.request.use(async (config) => {

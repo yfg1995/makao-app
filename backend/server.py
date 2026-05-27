@@ -23,7 +23,7 @@ api = APIRouter(prefix="/api")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -125,8 +125,11 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid session")
         # expiry check
     expires_at = sess.get("expires_at")
-    if expires_at and isinstance(expires_at, datetime) and expires_at < _now():
-        raise HTTPException(status_code=401, detail="Session expired")
+    if expires_at and isinstance(expires_at, datetime):
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < _now():
+            raise HTTPException(status_code=401, detail="Session expired")
     user = await db.users.find_one({"_id": sess["user_id"]})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
