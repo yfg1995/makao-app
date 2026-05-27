@@ -1,167 +1,102 @@
-// Card Rush Arena – original card visual.
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
-import { Image, StyleSheet, Text, View, ViewStyle } from "react-native";
-import { colors, images, radii } from "@/src/theme";
-import type { Card as CardModel } from "@/src/game/engine";
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { theme } from '../theme';
+import { Card as GameCard, suitColor, suitGlyph, actionLabel } from '../game/engine';
 
-interface Props {
-  card?: CardModel; // optional => back
-  size?: "sm" | "md" | "lg";
-  faceDown?: boolean;
-  style?: ViewStyle;
-  activeSuitOverride?: string;
+interface CardViewProps {
+  card: GameCard;
+  onPress?: () => void;
+  small?: boolean;
+  disabled?: boolean;
+  highlight?: boolean;
+  hidden?: boolean;
+  width?: number;
 }
 
-const SUIT_COLORS: Record<string, [string, string]> = {
-  flame: ["#FF6B8A", "#FF1F4A"],
-  wave: ["#39C9FF", "#0078B4"],
-  leaf: ["#3FE4B6", "#079B6D"],
-  bolt: ["#FFE08A", "#E5A100"],
-  wild: ["#B5179E", "#5B12FF"],
-};
+export function CardView({ card, onPress, small, disabled, highlight, hidden, width }: CardViewProps) {
+  const w = width || (small ? 50 : 78);
+  const h = w * 1.45;
 
-const SUIT_ICON: Record<string, any> = {
-  flame: { lib: MaterialCommunityIcons, name: "fire" },
-  wave: { lib: MaterialCommunityIcons, name: "waves" },
-  leaf: { lib: MaterialCommunityIcons, name: "leaf" },
-  bolt: { lib: MaterialCommunityIcons, name: "lightning-bolt" },
-  wild: { lib: MaterialCommunityIcons, name: "star-four-points" },
-};
-
-const sizes = {
-  sm: { w: 44, h: 64, fs: 14, ic: 16 },
-  md: { w: 64, h: 92, fs: 22, ic: 22 },
-  lg: { w: 80, h: 112, fs: 28, ic: 28 },
-};
-
-export function GameCard({ card, size = "md", faceDown = false, style, activeSuitOverride }: Props) {
-  const s = sizes[size];
-  if (faceDown || !card) {
+  if (hidden) {
     return (
-      <View testID="card-back" style={[styles.card, { width: s.w, height: s.h, borderColor: colors.border }, style]}>
-        <Image source={{ uri: images.cardBack }} style={styles.cardBackImg} />
+      <View style={[styles.cardBack, { width: w, height: h, opacity: disabled ? 0.5 : 1 }]}>
+        <LinearGradient colors={[theme.colors.primary, theme.colors.primaryDark]} style={[styles.cardBackInner, { width: w-6, height: h-6 }]}>
+          <Text style={styles.cardBackLogo}>★</Text>
+        </LinearGradient>
       </View>
     );
   }
-  const suit = card.suit;
-  const palette = SUIT_COLORS[suit] || SUIT_COLORS.wild;
-  const iconInfo = SUIT_ICON[suit] || SUIT_ICON.wild;
-  const IconLib = iconInfo.lib;
-  const label = renderLabel(card.value);
-  const isWild = suit === "wild";
 
-  return (
-    <View testID={`card-${card.suit}-${card.value}`} style={[styles.card, { width: s.w, height: s.h }, style]}>
+  const isWild = card.suit === 'Wild';
+  const color = suitColor(card.suit);
+  const isAction = !!card.action && card.action !== 'Wild';
+
+  const inner = (
+    <View style={[styles.card, { width: w, height: h, borderColor: highlight ? theme.colors.accent : theme.colors.border, borderWidth: highlight ? 2 : 1, shadowColor: highlight ? theme.colors.accent : '#000' }]}>
       <LinearGradient
-        colors={palette}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
-      <View style={styles.cardInner}>
+        colors={isWild ? ['#F97316','#22D3EE','#34D399','#8B5CF6'] : [withAlpha(color, 0.18), withAlpha(color, 0.04)]}
+        style={[styles.cardInner, { width: w - 4, height: h - 4 }]}
+      >
         <View style={styles.cornerTL}>
-          <Text style={[styles.cornerText, { fontSize: s.fs * 0.55 }]}>{label}</Text>
-          <IconLib name={iconInfo.name} size={s.ic * 0.6} color="#fff" />
+          <Text style={[styles.cornerValue, { color: isWild ? '#fff' : color, fontSize: small ? 10 : 14 }]}>
+            {card.value !== null ? card.value : actionLabel(card.action)}
+          </Text>
+          <Text style={[styles.cornerSuit, { fontSize: small ? 10 : 13 }]}>{suitGlyph(card.suit)}</Text>
         </View>
-        {isWild ? (
-          <View style={styles.wildCenter}>
-            <View style={[styles.wildQuad, { backgroundColor: colors.suits.flame, top: 0, left: 0 }]} />
-            <View style={[styles.wildQuad, { backgroundColor: colors.suits.wave, top: 0, right: 0 }]} />
-            <View style={[styles.wildQuad, { backgroundColor: colors.suits.leaf, bottom: 0, left: 0 }]} />
-            <View style={[styles.wildQuad, { backgroundColor: colors.suits.bolt, bottom: 0, right: 0 }]} />
-            <View style={styles.wildLabelWrap}>
-              <Text style={[styles.wildLabel, { fontSize: s.fs * 0.7 }]}>{card.value === "wild4" ? "+4" : "W"}</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.center}>
-            <IconLib name={iconInfo.name} size={s.ic * 1.7} color="#fff" />
-            <Text style={[styles.centerText, { fontSize: s.fs }]}>{label}</Text>
+        <View style={styles.center}>
+          <Text style={[styles.centerGlyph, { fontSize: small ? 24 : 38 }]}>{suitGlyph(card.suit)}</Text>
+          {card.value !== null ? (
+            <Text style={[styles.centerVal, { color: isWild ? '#fff' : color, fontSize: small ? 18 : 28 }]}>{card.value}</Text>
+          ) : (
+            <Text style={[styles.centerAction, { color: isWild ? '#fff' : color, fontSize: small ? 11 : 14 }]}>{actionLabel(card.action)}</Text>
+          )}
+        </View>
+        <View style={styles.cornerBR}>
+          <Text style={[styles.cornerValue, { color: isWild ? '#fff' : color, fontSize: small ? 10 : 14, transform: [{ rotate: '180deg' }] }]}>
+            {card.value !== null ? card.value : actionLabel(card.action)}
+          </Text>
+        </View>
+        {isAction && (
+          <View style={[styles.badge, { backgroundColor: withAlpha(color, 0.9) }]}>
+            <Text style={styles.badgeText}>{actionLabel(card.action)}</Text>
           </View>
         )}
-        <View style={styles.cornerBR}>
-          <IconLib name={iconInfo.name} size={s.ic * 0.6} color="#fff" />
-          <Text style={[styles.cornerText, { fontSize: s.fs * 0.55 }]}>{label}</Text>
-        </View>
-      </View>
-      {activeSuitOverride && card.value === "wild" ? (
-        <View style={[styles.activeBadge, { backgroundColor: colors.suits[activeSuitOverride as keyof typeof colors.suits] }]} />
-      ) : null}
+      </LinearGradient>
     </View>
+  );
+
+  if (!onPress || disabled) {
+    return <View style={{ opacity: disabled ? 0.45 : 1 }}>{inner}</View>;
+  }
+  return (
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress}>{inner}</TouchableOpacity>
   );
 }
 
-function renderLabel(value: string): string {
-  switch (value) {
-    case "skip":
-      return "⦸";
-    case "reverse":
-      return "⇄";
-    case "draw2":
-      return "+2";
-    case "wild":
-      return "★";
-    case "wild4":
-      return "+4";
-    default:
-      return value;
-  }
+function withAlpha(hex: string, a: number): string {
+  // simple #RRGGBB to rgba
+  const c = hex.replace('#', '');
+  const r = parseInt(c.slice(0,2), 16);
+  const g = parseInt(c.slice(2,4), 16);
+  const b = parseInt(c.slice(4,6), 16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: radii.md,
-    overflow: "hidden",
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.15)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  cardInner: {
-    flex: 1,
-    padding: 4,
-    justifyContent: "space-between",
-  },
-  cardBackImg: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  cornerTL: { flexDirection: "row", alignItems: "center", gap: 2 },
-  cornerBR: { flexDirection: "row", alignItems: "center", gap: 2, alignSelf: "flex-end", transform: [{ rotate: "180deg" }] },
-  cornerText: { color: "#fff", fontWeight: "900" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
-  centerText: { color: "#fff", fontWeight: "900", textShadowColor: "rgba(0,0,0,0.4)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
-  wildCenter: { flex: 1, margin: 4, borderRadius: 8, overflow: "hidden", position: "relative" },
-  wildQuad: { position: "absolute", width: "50%", height: "50%" },
-  wildLabelWrap: {
-    position: "absolute",
-    top: 0, bottom: 0, left: 0, right: 0,
-    alignItems: "center", justifyContent: "center",
-  },
-  wildLabel: {
-    color: "#fff",
-    fontWeight: "900",
-    textShadowColor: "rgba(0,0,0,0.6)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  activeBadge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#fff",
-  },
+  card: { borderRadius: 10, backgroundColor: '#1A1437', alignItems: 'center', justifyContent: 'center', padding: 2, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  cardInner: { borderRadius: 8, alignItems: 'center', justifyContent: 'center', padding: 4, overflow: 'hidden' },
+  cardBack: { borderRadius: 10, backgroundColor: theme.colors.primaryDark, padding: 3 },
+  cardBackInner: { borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  cardBackLogo: { color: '#fff', fontSize: 30, fontWeight: '900' },
+  cornerTL: { position: 'absolute', top: 4, left: 6, alignItems: 'center' },
+  cornerBR: { position: 'absolute', bottom: 4, right: 6, alignItems: 'center' },
+  cornerValue: { fontWeight: '900' },
+  cornerSuit: {},
+  center: { alignItems: 'center', justifyContent: 'center' },
+  centerGlyph: {},
+  centerVal: { fontWeight: '900', marginTop: 2 },
+  centerAction: { fontWeight: '800', marginTop: 4, textAlign: 'center' },
+  badge: { position: 'absolute', bottom: -2, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
 });
-
-export { Ionicons };

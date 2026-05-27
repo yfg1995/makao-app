@@ -1,0 +1,119 @@
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../src/services/auth';
+import { Button, Pill, NoMoneyFooter } from '../../src/components/UI';
+import { theme } from '../../src/theme';
+import { api } from '../../src/services/api';
+
+export default function Lobby() {
+  const router = useRouter();
+  const { user, refresh } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const [dailyAvail, setDailyAvail] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refresh();
+    try { const { data } = await api.get('/daily/status'); setDailyAvail(!!data.can_claim); } catch {}
+    setRefreshing(false);
+  };
+
+  useEffect(() => { onRefresh(); }, []);
+
+  if (!user) return null;
+
+  return (
+    <LinearGradient colors={[theme.colors.bg, theme.colors.bgAlt]} style={{flex:1}}>
+      <SafeAreaView style={{flex:1}} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scroll} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}> 
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greet}>Welcome back,</Text>
+              <Text style={styles.name}>{user.username}</Text>
+            </View>
+            <TouchableOpacity onPress={() => router.push('/settings')}>
+              <Ionicons name="settings-outline" color={theme.colors.text} size={26} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.statsRow}>
+            <Pill icon={<Text>🪙</Text>} value={user.coins} label="Coins" />
+            <Pill icon={<Text>🎫</Text>} value={user.tickets} label="Tickets" />
+            <Pill icon={<Text>🏆</Text>} value={user.rank_points} label={user.league} />
+          </View>
+
+          <LinearGradient colors={[theme.colors.primary, theme.colors.accent]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.hero}>
+            <View style={{flex:1}}>
+              <Text style={styles.heroLabel}>Quick Match</Text>
+              <Text style={styles.heroTitle}>1 vs 3 Bots</Text>
+              <Text style={styles.heroSub}>Shedding rules • ~5 min • Earn coins & RP</Text>
+            </View>
+            <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/game')} style={styles.heroBtn}>
+              <Text style={styles.heroBtnText}>PLAY</Text>
+              <Ionicons name="play" color="#0E0B1F" size={20} />
+            </TouchableOpacity>
+          </LinearGradient>
+
+          <View style={styles.gridRow}>
+            <TouchableOpacity style={[styles.tile, { backgroundColor: '#3B2A78' }]} onPress={() => router.push('/daily')}>
+              <Ionicons name="gift" color={theme.colors.gold} size={28} />
+              <Text style={styles.tileTitle}>Daily Reward</Text>
+              <Text style={styles.tileSub}>{dailyAvail ? 'Available now!' : 'Come back tomorrow'}</Text>
+              {dailyAvail && <View style={styles.badgeDot} />}
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.tile, { backgroundColor: '#0C4A6E' }]} onPress={() => router.push('/(tabs)/missions')}>
+              <Ionicons name="trophy" color={theme.colors.warning} size={28} />
+              <Text style={styles.tileTitle}>Missions</Text>
+              <Text style={styles.tileSub}>Daily goals</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.gridRow}>
+            <TouchableOpacity style={[styles.tile, { backgroundColor: '#5B21B6' }]} onPress={() => router.push('/(tabs)/leaderboard')}>
+              <Ionicons name="podium" color="#fff" size={28} />
+              <Text style={styles.tileTitle}>Leaderboard</Text>
+              <Text style={styles.tileSub}>Climb leagues</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.tile, { backgroundColor: '#155E75' }]} onPress={() => router.push('/(tabs)/shop')}>
+              <Ionicons name="bag-handle" color={theme.colors.accent} size={28} />
+              <Text style={styles.tileTitle}>Shop</Text>
+              <Text style={styles.tileSub}>Coins & tickets</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.rulesCard}>
+            <Text style={styles.rulesTitle}>How to Win</Text>
+            <Text style={styles.rulesText}>Be the first to play all your cards. Match the suit 🔥🌊🍃⚡ or the value. Use action cards strategically: Skip, Reverse, +2, Shield, Wild.</Text>
+          </View>
+
+          <NoMoneyFooter />
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll: { padding: 16, paddingBottom: 32 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  greet: { color: theme.colors.textMuted, fontSize: 13 },
+  name: { color: theme.colors.text, fontSize: 24, fontWeight: '900' },
+  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  hero: { flexDirection: 'row', alignItems: 'center', borderRadius: theme.radius.lg, padding: 20, marginBottom: 16, shadowColor: theme.colors.primary, shadowOpacity: 0.5, shadowRadius: 16, elevation: 6 },
+  heroLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 12, letterSpacing: 1.5, fontWeight: '700' },
+  heroTitle: { color: '#fff', fontSize: 26, fontWeight: '900', marginTop: 4 },
+  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 4 },
+  heroBtn: { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: theme.radius.pill, gap: 4 },
+  heroBtnText: { color: '#0E0B1F', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
+  gridRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  tile: { flex: 1, borderRadius: theme.radius.lg, padding: 16, minHeight: 110, borderWidth: 1, borderColor: theme.colors.border, position: 'relative' },
+  tileTitle: { color: '#fff', fontWeight: '800', marginTop: 10, fontSize: 16 },
+  tileSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 },
+  badgeDot: { position: 'absolute', top: 12, right: 12, width: 10, height: 10, borderRadius: 5, backgroundColor: theme.colors.danger },
+  rulesCard: { backgroundColor: theme.colors.surface, padding: 16, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, marginTop: 8 },
+  rulesTitle: { color: theme.colors.text, fontWeight: '900', fontSize: 16, marginBottom: 6 },
+  rulesText: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18 },
+});

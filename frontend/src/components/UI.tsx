@@ -1,132 +1,108 @@
-// Card Rush Arena – shared UI primitives.
-import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle, TextStyle } from "react-native";
-import { colors, radii, spacing } from "@/src/theme";
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { theme } from '../theme';
 
-export function Panel({ children, style, testID }: { children: React.ReactNode; style?: ViewStyle; testID?: string }) {
-  return (
-    <View testID={testID} style={[styles.panel, style]}>
-      {children}
-    </View>
-  );
-}
-
-export function PrimaryButton({
-  label,
-  onPress,
-  loading,
-  disabled,
-  testID,
-  style,
-  variant = "primary",
-}: {
-  label: string;
-  onPress: () => void;
-  loading?: boolean;
+interface ButtonProps {
+  title: string;
+  onPress?: () => void;
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   disabled?: boolean;
-  testID?: string;
-  style?: ViewStyle;
-  variant?: "primary" | "secondary" | "danger" | "gold";
-}) {
-  const palettes: Record<string, [string, string]> = {
-    primary: ["#34E9FF", "#00B0CC"],
-    secondary: ["#3D3258", "#2A2342"],
-    danger: ["#FF5C7A", "#C8123A"],
-    gold: ["#FFE979", "#E8B600"],
-  };
-  const textColor = variant === "secondary" ? "#fff" : "#0B0914";
-  return (
-    <Pressable
-      testID={testID}
-      onPress={() => !disabled && !loading && onPress()}
-      style={({ pressed }) => [
-        styles.btnBase,
-        style,
-        { transform: [{ scale: pressed ? 0.97 : 1 }], opacity: disabled ? 0.5 : 1 },
-      ]}
-    >
-      <LinearGradient
-        colors={palettes[variant]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
-      {loading ? (
-        <ActivityIndicator color={textColor} />
-      ) : (
-        <Text style={[styles.btnText, { color: textColor }]}>{label}</Text>
-      )}
-    </Pressable>
-  );
-}
-
-export function StatPill({
-  icon,
-  label,
-  value,
-  color,
-  testID,
-}: {
+  loading?: boolean;
+  small?: boolean;
   icon?: React.ReactNode;
-  label?: string;
-  value: string | number;
-  color?: string;
-  testID?: string;
-}) {
+  fullWidth?: boolean;
+}
+
+export function Button({ title, onPress, variant='primary', disabled, loading, small, icon, fullWidth }: ButtonProps) {
+  const baseStyle = [styles.btn, small && styles.btnSmall, fullWidth && { alignSelf: 'stretch' }, disabled && { opacity: 0.55 }];
+  if (variant === 'primary') {
+    return (
+      <TouchableOpacity activeOpacity={0.85} disabled={disabled || loading} onPress={onPress} style={baseStyle}>
+        <LinearGradient colors={[theme.colors.primary, theme.colors.accent]} start={{x:0,y:0}} end={{x:1,y:1}} style={[styles.gradient, small && styles.gradientSmall]}>
+          {loading ? <ActivityIndicator color="#fff" /> : (
+            <>
+              {icon}
+              <Text style={[styles.btnText, small && {fontSize: 14}]}>{title}</Text>
+            </>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
+  if (variant === 'secondary') {
+    return (
+      <TouchableOpacity activeOpacity={0.85} disabled={disabled||loading} onPress={onPress} style={[baseStyle, styles.secondary]}>
+        {loading ? <ActivityIndicator color={theme.colors.text} /> : <Text style={[styles.btnText, small && {fontSize: 14}]}>{title}</Text>}
+      </TouchableOpacity>
+    );
+  }
+  if (variant === 'danger') {
+    return (
+      <TouchableOpacity activeOpacity={0.85} disabled={disabled||loading} onPress={onPress} style={[baseStyle, { backgroundColor: '#7F1D1D' }]}>
+        <Text style={[styles.btnText, small && {fontSize: 14}]}>{title}</Text>
+      </TouchableOpacity>
+    );
+  }
   return (
-    <View testID={testID} style={[styles.statPill, color ? { borderColor: color } : null]}>
+    <TouchableOpacity activeOpacity={0.85} disabled={disabled||loading} onPress={onPress} style={[baseStyle, styles.ghost]}>
+      <Text style={[styles.btnText, { color: theme.colors.accent }, small && {fontSize: 14}]}>{title}</Text>
+    </TouchableOpacity>
+  );
+}
+
+export function Pill({ label, value, icon, color }: { label?: string; value: string | number; icon?: React.ReactNode; color?: string }) {
+  return (
+    <View style={[styles.pill, color && { borderColor: color }]}>
       {icon}
-      {label ? <Text style={styles.statLabel}>{label}</Text> : null}
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.pillValue}>{value}</Text>
+      {label ? <Text style={styles.pillLabel}>{label}</Text> : null}
     </View>
   );
 }
 
-export function ScreenTitle({ title, subtitle, style }: { title: string; subtitle?: string; style?: TextStyle }) {
+export function Card({ children, style }: { children: React.ReactNode; style?: any }) {
   return (
-    <View style={{ marginBottom: spacing.lg }}>
-      <Text style={[styles.title, style]}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+    <View style={[styles.card, style]}>{children}</View>
+  );
+}
+
+export function ScreenContainer({ children }: { children: React.ReactNode }) {
+  return (
+    <LinearGradient colors={[theme.colors.bg, theme.colors.bgAlt]} style={{ flex: 1 }}>
+      {children}
+    </LinearGradient>
+  );
+}
+
+export function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <View style={styles.sectionRow}>
+      <Text style={styles.sectionTitle}>{children}</Text>
+      {right}
     </View>
+  );
+}
+
+export function NoMoneyFooter() {
+  return (
+    <Text style={styles.disclaimer}>Virtual currency has no monetary value. Free-to-play, no real-money betting.</Text>
   );
 }
 
 const styles = StyleSheet.create({
-  panel: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  btnBase: {
-    height: 52,
-    borderRadius: radii.pill,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.xl,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  btnText: { fontSize: 16, fontWeight: "900", letterSpacing: 0.5 },
-  statPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statLabel: { color: colors.subtext, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
-  statValue: { color: colors.text, fontWeight: "900", fontSize: 14 },
-  title: { color: colors.text, fontSize: 28, fontWeight: "900" },
-  subtitle: { color: colors.subtext, fontSize: 14, marginTop: 4 },
+  btn: { borderRadius: theme.radius.pill, overflow: 'hidden', minHeight: 48, justifyContent: 'center' },
+  btnSmall: { minHeight: 36 },
+  gradient: { paddingVertical: 14, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  gradientSmall: { paddingVertical: 8, paddingHorizontal: 16 },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  secondary: { backgroundColor: theme.colors.surface, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 24, borderWidth: 1, borderColor: theme.colors.border },
+  ghost: { backgroundColor: 'transparent', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 24 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.colors.surface, paddingHorizontal: 12, paddingVertical: 6, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.border },
+  pillValue: { color: theme.colors.text, fontWeight: '800', fontSize: 14 },
+  pillLabel: { color: theme.colors.textMuted, fontSize: 12, marginLeft: 2 },
+  card: { backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, padding: 16, borderWidth: 1, borderColor: theme.colors.border },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 16 },
+  sectionTitle: { color: theme.colors.text, fontSize: 18, fontWeight: '800' },
+  disclaimer: { color: theme.colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 12, paddingHorizontal: 16 },
 });

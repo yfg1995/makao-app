@@ -1,22 +1,16 @@
-// Card Rush Arena – mock rewarded ad service.
-// Replace with Google AdMob (`react-native-google-mobile-ads`) before Play Store.
-// All rewards are validated server-side via /api/ads/claim — this module only
-// drives the simulated viewing experience.
-export async function showRewardedAd(opts?: { simulateSeconds?: number }): Promise<{ completed: boolean }> {
-  const seconds = opts?.simulateSeconds ?? 3;
-  return new Promise(resolve => {
-    setTimeout(() => resolve({ completed: true }), seconds * 1000);
-  });
-}
+// Mock AdMob service. Simulates a rewarded ad with a 1.2s delay.
+// IMPORTANT: This is a placeholder. No real ads served.
+import { api } from './api';
 
-// Placeholders for future AdMob unit IDs (TEST IDs only; replace before release).
-export const AD_UNITS = {
-  rewarded: {
-    android: "ca-app-pub-3940256099942544/5224354917", // Google test ID
-    ios: "ca-app-pub-3940256099942544/1712485313",
-  },
-  interstitial: {
-    android: "ca-app-pub-3940256099942544/1033173712",
-    ios: "ca-app-pub-3940256099942544/4411468910",
-  },
+export const adsService = {
+  isMock: true,
+  async showRewardedAd(): Promise<{ ok: boolean; reward_coins?: number }> {
+    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const { data } = await api.post('/ads/reward', {});
+      return { ok: true, reward_coins: data.reward_coins };
+    } catch (e) {
+      return { ok: false };
+    }
+  }
 };
