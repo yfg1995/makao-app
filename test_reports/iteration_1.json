@@ -1,0 +1,49 @@
+{
+  "summary": "Full backend + frontend sweep of Card Rush Arena MVP. Backend: 23/23 pytest tests passing (auth guest signup with correct defaults 1000c/5t/0RP/Bronze, /auth/me with X-Session-Token, /auth/session endpoint structure, logout, match win/loss persistence, shop items/purchase/insufficient/invalid, ads reward, daily status/claim/cooldown, missions list/claim guard, leaderboard ordering, profile patch). Frontend: splash routes to /login, Play as Guest end-to-end lands in Lobby showing 1000 coins / 5 tickets / Bronze; Continue with Google button exists and /auth-callback route loads without crashing; tab navigation works (Lobby/Missions/Ranks/Shop/Profile); Game screen renders 7-card hand vs 3 bots (AceFlame, WaveLord, BoltKing) with discard pile & draw deck; Draw button works and bots take turns (saw Reverse card auto-played by bot); Shop renders 4 bundles + Watch ad button (mock AdMob +50c works, balance refreshes); Daily Rewards renders 7-day schedule with Claim button; Profile shows user stats; Settings shows account info, mocked-ad notice and Sign Out; Legal screen contains ALL required phrases ('no gambling', 'no betting', 'no real-money', 'no crypto', 'no cash-out', 'virtual coins'). Mobile viewport 390x844 layout is clean — no overflow detected. No deprecated Expo packages (expo-av/barcode-scanner/background-fetch) in use.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/session", "issue": "Returns 401 for invalid session_id (correct). Real OAuth not exercised per request — endpoint structure verified."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Card (hand)", "issue": "Bottom row hand cards render upside-down/mirrored text inside card body (e.g., 'Wild' shown rotated 180°). May be intentional 'reflection' styling but is visually confusing. Reference: /app/frontend/src/components/Card.tsx", "testID": "n/a", "priority": "LOW"},
+      {"component": "auth-callback", "issue": "When opened directly with no session_id hash, page stays on /auth-callback URL (shows 'Signing you in…' spinner) instead of immediately redirecting to /login as the code suggests. Does NOT crash. Reference: /app/frontend/app/auth-callback.tsx:14-15", "testID": "n/a", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "global", "issues": ["Console warns 'shadow* style props deprecated, use boxShadow' across many components", "Console warns 'props.pointerEvents is deprecated, use style.pointerEvents'"]}
+    ],
+    "react_native_issues": [
+      {"component": "testID coverage", "issue": "No interactive elements expose testID (Button, Card, Pill, tab triggers all rely on visible text). Tests had to rely on text selectors. Recommend adding testID to Button/Card/tab buttons for robust E2E. Reference: /app/frontend/src/components/UI.tsx (Button props don't accept testID)"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_backend_api.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add testID props to Button, Card, Pill, tab triggers, and key screens to support deterministic UI testing.",
+    "Replace deprecated style props: 'shadow*' → 'boxShadow', and 'props.pointerEvents' → 'style.pointerEvents' (RN web warnings).",
+    "Verify intended visual for the hand card 'reflection' (rotated/mirrored text at bottom of cards in Game screen) — may be intentional but reads as broken.",
+    "Optional: ensure /auth-callback explicitly redirects to /login when no session_id is present (currently appears to stall on the loading screen)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 472 lines — within limit but consider splitting auth/shop/match/daily routers if grown further.",
+    "Backend correctly uses MONGO_URL/DB_NAME from env; frontend uses EXPO_PUBLIC_BACKEND_URL.",
+    "All money/asset writes are atomic via $set; no race conditions observed at single-user scope.",
+    "Frontend uses StyleSheet.create everywhere; no className/CSS; text wrapped in <Text> components."
+  ],
+  "updated_files": [
+    "/app/backend/tests/conftest.py (new)",
+    "/app/backend/tests/test_backend_api.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "No external seed needed. Tests create disposable TEST_-prefixed guest users on each run. Leaderboard appears to be auto-seeded with bot users (AceFlame, WaveLord, LeafSage, BoltKing, etc.) by the backend at startup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend public URL: env EXPO_PUBLIC_BACKEND_URL. Guest auth fully functional: POST /api/auth/guest returns {session_token, user}. Pass token as 'Authorization: Bearer <t>' OR 'X-Session-Token: <t>'. Shop items: coins_small (1 ticket → +500c), coins_medium (3t → +1500c), coins_big (5t → +4000c), tickets_pack (1500c → +3 tickets). Daily reward today=+50c. Ads /api/ads/reward gives +50c flat. Missions ids: win_1, win_3, play_5, action_10. Frontend Watch button is labeled 'Watch' (not 'Watch Ad'). For Emergent Google OAuth, /api/auth/session expects header X-Session-ID and calls https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data — full flow not automated this run.",
+  "rca_of_issue": "No blocking issues. Previous datetime bug on /api/auth/me is confirmed fixed (recent logs show 200 OK). Earlier 500s in logs are stale and pre-fix."
+}
