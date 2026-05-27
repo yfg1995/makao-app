@@ -1,0 +1,181 @@
+{
+  "project_name": "Card Rush Arena",
+  "platform": "Expo React Native",
+  "theme": "Dark",
+  "archetype": "Archetype 6 (Vibrant Play) + Archetype 5 (Luxury) Hybrid",
+  "design_philosophy": "A premium, vibrant, fast-paced casual mobile card game. Uses deep night-sky purples anchored by electric teal highlights. The UI feels tactile, rounded, and magical, drawing inspiration from high-end battlers like Clash Royale and Marvel Snap. Legibility, thumb-reach, and rapid interaction are prioritized.",
+  "color_palette": {
+    "background_base": "#0B0914",
+    "surface_main": "#1A1528",
+    "surface_highlight": "#2A2342",
+    "primary_brand": "#00E5FF",
+    "secondary_brand": "#B5179E",
+    "accent_gold": "#FEE440",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#AFA8BA",
+    "border_subtle": "#392F54",
+    "suits": {
+      "flame": "#FF3366",
+      "wave": "#00B4D8",
+      "leaf": "#06D6A0",
+      "bolt": "#FFD166"
+    }
+  },
+  "typography": {
+    "font_family_headings": "Outfit, sans-serif",
+    "font_family_body": "Nunito, sans-serif",
+    "hierarchy": {
+      "h1": "text-4xl font-black tracking-tight",
+      "h2": "text-3xl font-bold tracking-tight",
+      "h3": "text-2xl font-bold",
+      "body": "text-base font-medium",
+      "label": "text-xs font-bold tracking-wider uppercase"
+    }
+  },
+  "layout_spacing": {
+    "screen_padding": "p-4 or p-6",
+    "element_gap": "gap-4",
+    "card_border_radius": "rounded-2xl",
+    "button_border_radius": "rounded-full",
+    "bottom_sheet_radius": "rounded-t-3xl"
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#00E5FF] text-[#0B0914] rounded-full py-4 px-8 font-black shadow-[0_4px_16px_rgba(0,229,255,0.4)]",
+      "secondary": "bg-[#2A2342] text-white rounded-full py-4 px-8 font-bold border-2 border-[#392F54]",
+      "action": "bg-[#B5179E] text-white rounded-full py-3 px-6 font-bold shadow-[0_4px_12px_rgba(181,23,158,0.4)]"
+    },
+    "cards": {
+      "game_card": "aspect-[2.5/3.5] rounded-xl border-2 shadow-lg overflow-hidden relative",
+      "ui_panel": "bg-[#1A1528] rounded-2xl p-4 border border-[#392F54] shadow-xl"
+    },
+    "bottom_navigation": {
+      "style": "bg-[#0B0914]/90 backdrop-blur-xl border-t border-[#392F54] pb-safe pt-2",
+      "active_tab": "text-[#00E5FF]",
+      "inactive_tab": "text-[#AFA8BA]"
+    }
+  },
+  "game_mechanics_ui": {
+    "card_suits": {
+      "flame": { "color": "#FF3366", "icon": "Fire/Flame", "theme": "Aggressive red/orange" },
+      "wave": { "color": "#00B4D8", "icon": "Water/Drop", "theme": "Fluid blue/cyan" },
+      "leaf": { "color": "#06D6A0", "icon": "Leaf/Nature", "theme": "Vibrant emerald green" },
+      "bolt": { "color": "#FFD166", "icon": "Lightning/Star", "theme": "Electric yellow" }
+    },
+    "action_cards": [
+      { "type": "Skip", "visual": "Circle with a slash, vibrant glow" },
+      { "type": "Reverse", "visual": "Two arrows in a circle" },
+      { "type": "Draw Two", "visual": "+2 typography with glowing aura" },
+      { "type": "Wild Color", "visual": "Four-color segmented circle, rainbow glow" },
+      { "type": "Shield", "visual": "Glowing magical barrier icon" },
+      { "type": "Swap Direction", "visual": "Criss-crossing magical arrows" }
+    ]
+  },
+  "screens": {
+    "Splash": {
+      "layout": "Full screen background (arena_bg). Central animated game logo. Progress bar at bottom.",
+      "visuals": "Immersive, glowing."
+    },
+    "LoginGuest": {
+      "layout": "Centered branding. Large 'Play as Guest' button (primary). 'Sign in with Google' button (secondary) below it.",
+      "visuals": "Uses arena_bg with heavy dark vignette."
+    },
+    "HomeLobby": {
+      "layout": "Top bar: User avatar (top left), Level/XP bar, Coins and Tickets (top right). Center: 3D character or featured card. Bottom-center: Massive 'PLAY' button. Bottom: Tab navigation (Home, Play, Missions, Leaderboard, Profile).",
+      "visuals": "Bento-style UI panels for daily streak and quick missions."
+    },
+    "Matchmaking": {
+      "layout": "Mode selection (Casual, Ranked, Private). Searching animation (radar or swirling magical energy). Estimated time indicator."
+    },
+    "GameTable": {
+      "layout": "Portrait mobile-first layout. Top: Opponent 1 (Avatar, Card Count). Left/Right: Opponents 2 & 3. Center: Discard pile (top card visible), Draw pile. Current color indicator ring. Bottom: Player's hand of cards (fanned out or scrollable), overlapping. 'UNO/Rush' button floating on right.",
+      "visuals": "Table background is a stylized magical arena floor. Turn indicator is a glowing ring around the active player's avatar."
+    },
+    "Results": {
+      "layout": "Victory/Defeat text (massive, glowing). Rewards chest opening animation. XP gained, Coins earned. 'Watch Ad to Double' button.",
+      "visuals": "Confetti or rain particles. High contrast."
+    },
+    "DailyRewards": {
+      "layout": "7-day track. Days 1-6 are small glowing orbs/coins, Day 7 is a massive reward_chest.",
+      "visuals": "Modal bottom-sheet or full screen."
+    },
+    "Missions": {
+      "layout": "List of tasks (e.g., 'Play 5 Flame Cards'). Progress bars for each. Claim button when complete.",
+      "visuals": "Cards with glowing borders when claimable."
+    },
+    "Leaderboard": {
+      "layout": "Top 3 players on podiums. List of players below. Current user highlighted in the list. League badge (Bronze, Silver, Gold, Master) displayed."
+    },
+    "Profile": {
+      "layout": "Large Avatar. Username. Stats grid (Matches Played, Win Rate, Total Trophies). Match history list."
+    },
+    "Shop": {
+      "layout": "Grid of cosmetic items (Card Backs, Avatars, Table Themes). Virtual currency prices.",
+      "visuals": "Premium showroom lighting, soft spotlights on items."
+    },
+    "Settings_Privacy_Terms_Admin": {
+      "layout": "Standard list views with toggles for sound/haptics. Admin panel for debug features."
+    }
+  },
+  "animations_and_motion": {
+    "card_draw": "Slide up from deck to hand with a slight rotation and scale pop (spring physics).",
+    "card_play": "Arc trajectory from hand to discard pile, screen shakes slightly on heavy action cards.",
+    "turn_change": "Glowing aura immediately snaps to the active player's avatar with a soft pulse.",
+    "chest_open": "Wobble, burst of light (scale 0 to 1 with overshoot), particles fly out to coin meters."
+  },
+  "image_urls": {
+    "arena_bg": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/fe23fa8d-3a85-4fb8-8992-bf59f5623227/images/649c9886a0d8b90c59b73f8da4fe8603f2a81aa2f1dee63bb321563ce6640557.png",
+      "description": "Magical arena background for Splash and Home screens."
+    },
+    "card_back": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/fe23fa8d-3a85-4fb8-8992-bf59f5623227/images/686ff222da29b4d1b3abb058615f9e10a139cf9a09b28f531d2e0debb2fef0e8.png",
+      "description": "Premium geometric card back for the draw pile and opponent hands."
+    },
+    "card_flame": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/fe23fa8d-3a85-4fb8-8992-bf59f5623227/images/ae4fbe75138fc5d344e60d794996a66b950a96ee171294d559a3199f9b99b4c6.png",
+      "description": "Flame suit card art (Red/Orange)."
+    },
+    "card_wave": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/fe23fa8d-3a85-4fb8-8992-bf59f5623227/images/2432681a6ee162b9093f028864b3977777d3942ee56e37b73635cc5ccf381070.png",
+      "description": "Wave suit card art (Blue/Cyan)."
+    },
+    "card_leaf": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/fe23fa8d-3a85-4fb8-8992-bf59f5623227/images/971ba2b5036d21edfc5bbabb936cdbe10541432100ec70a41548eb48ef9a2206.png",
+      "description": "Leaf suit card art (Emerald Green)."
+    },
+    "card_bolt": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/fe23fa8d-3a85-4fb8-8992-bf59f5623227/images/6df500fd4efea8119a68b616c91de7d4826e719975f791cbb740921124a885a8.png",
+      "description": "Bolt suit card art (Electric Yellow)."
+    },
+    "reward_chest": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/fe23fa8d-3a85-4fb8-8992-bf59f5623227/images/a9c7eed738b106a336c2ef109d85c0aefef186bed8ed09e4f8589288edcf5707.png",
+      "description": "Glowing reward chest for daily streak and match victories."
+    },
+    "player_avatar": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/fe23fa8d-3a85-4fb8-8992-bf59f5623227/images/72db34fa01a80ba7f21446b490c2ff4e5bd25fd2ef4602b31994853b20eed4f9.png",
+      "description": "Default premium avatar for the player/guest."
+    }
+  },
+  "testing_guidelines": {
+    "requirement": "All interactive and key informational elements MUST include a 'data-testid' attribute.",
+    "convention": "kebab-case, role-based",
+    "examples": [
+      "data-testid='login-guest-button'",
+      "data-testid='play-match-button'",
+      "data-testid='card-item-flame-skip'",
+      "data-testid='draw-pile'",
+      "data-testid='home-tab-button'"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "This is a React Native Expo project. Translate the Tailwind-like class strings in this JSON into React Native StyleSheet objects or use NativeWind if configured.",
+    "Do NOT use pure HTML/CSS web elements (like <div>). Map everything to <View>, <Text>, <Image>, <TouchableOpacity>, etc. Ensure to write code for React Native Expo strictly.",
+    "Prioritize smooth animations using React Native Reanimated or the Animated API. Card dealing and playing must feel responsive and snappy.",
+    "Use the provided image URLs via the <Image source={{ uri: '...' }} /> component.",
+    "Implement the 'data-testid' rule rigorously using the 'testID' prop in React Native for all interactive elements.",
+    "Ensure the Game Table screen logic effectively manages state for 4 players, placing the user at the bottom.",
+    "Remember to mock the Ad service for the 'Double Rewards' feature.",
+    "Apply safe area insets (e.g., react-native-safe-area-context) heavily, especially for the bottom tab bar and top header."
+  ]
+}
