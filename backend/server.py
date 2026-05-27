@@ -348,7 +348,6 @@ async def missions(user=Depends(get_current_user)):
     plays_today = await db.matches.count_documents({"user_id": user["_id"], "at": {"$gte": today}})
     wins_today = await db.matches.count_documents({"user_id": user["_id"], "at": {"$gte": today}, "won": True})
     actions_today = int(user.get("actions_today_count", 0))
-    claimed = set((await db.mission_claims.find({"user_id": user["_id"], "day": today}).to_list(length=100)).__iter__().__next__()["_id"] if False else [])
     claims = await db.mission_claims.find({"user_id": user["_id"], "day": today}).to_list(length=100)
     claimed_ids = {c["mission_id"] for c in claims}
     metrics = {"wins_today": wins_today, "plays_today": plays_today, "actions_today": actions_today}
