@@ -1,21 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, BackHandler, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, BackHandler, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../src/theme';
 import { CardView } from '../src/components/Card';
 import { Button } from '../src/components/UI';
 import {
   GameState, newGame, topCard, legalCardsFor, playCard, drawAndPass, botTurn,
-  suitColor, suitGlyph, actionLabel, SUIT_LIST, Suit,
+  suitColor, suitGlyph, SUIT_LIST, Suit,
 } from '../src/game/engine';
 import { useAuth } from '../src/services/auth';
 import { api } from '../src/services/api';
 
 export default function GameScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ matchId?: string; paidWith?: string }>();
+  const matchId = typeof params.matchId === 'string' ? params.matchId : '';
   const { user, refresh } = useAuth();
   const [state, setState] = useState<GameState>(() => newGame(user?.username || 'You'));
   const [showSuitPicker, setShowSuitPicker] = useState(false);
@@ -27,7 +29,13 @@ export default function GameScreen() {
 
   const top = topCard(state);
   const human = state.players[0];
-  const legalIds = useMemo(() => new Set(legalCardsFor(human, state).map((c) => c.id)), [state]);
+  const legalIds = useMemo(() => new Set(legalCardsFor(human, state).map((c) => c.id)), [human, state]);
+
+  useEffect(() => {
+    if (!matchId) {
+      router.replace('/(tabs)/lobby');
+    }
+  }, [matchId, router]);
 
   // Bot turn loop
   useEffect(() => {
@@ -44,9 +52,10 @@ export default function GameScreen() {
 
   // Match end handler
   useEffect(() => {
-    if (state.winner === null || endHandled) return;
+    const winnerIndex = state.winner;
+    if (winnerIndex === null || endHandled || !matchId) return;
     setEndHandled(true);
-    const won = state.winner === 0;
+    const won = winnerIndex === 0;
     const myCardsLeft = state.players[0].hand.length;
     const duration = Math.floor((Date.now() - state.startedAt) / 1000);
     const coins_earned = won ? 50 + Math.max(0, 30 - duration / 6 | 0) : 10;
@@ -55,7 +64,7 @@ export default function GameScreen() {
     (async () => {
       try {
         await api.post('/match/result', {
-          won, cards_left: myCardsLeft, duration_seconds: duration,
+          match_id: matchId, won, cards_left: myCardsLeft, duration_seconds: duration,
           coins_earned, rank_points_delta: rp_delta, xp_earned,
         });
         await refresh();
@@ -69,11 +78,11 @@ export default function GameScreen() {
           xp: String(xp_earned),
           duration: String(duration),
           cardsLeft: String(myCardsLeft),
-          winnerName: state.players[state.winner].name,
+          winnerName: state.players[winnerIndex].name,
         },
       });
     })();
-  }, [state.winner]);
+  }, [endHandled, matchId, refresh, router, state.players, state.startedAt, state.winner]);
 
   // Hardware back -> confirm quit
   useEffect(() => {
@@ -111,6 +120,16 @@ export default function GameScreen() {
     if (state.turn !== 0 || state.winner !== null) return;
     setState(drawAndPass(state, 0));
   };
+
+  if (!matchId) {
+    return (
+      <LinearGradient colors={[theme.colors.bg, theme.colors.bgAlt]} style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text style={styles.status}>Opening match...</Text>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
   const myTurn = state.turn === 0 && state.winner === null;
   const mustDrawStack = state.pendingDraw > 0;
@@ -228,13 +247,13 @@ export default function GameScreen() {
           <View style={styles.modalRoot}>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Quit match?</Text>
-              <Text style={styles.modalText}>You'll forfeit the match and lose 10 RP.</Text>
+              <Text style={styles.modalText}>You will forfeit the match and lose 10 RP.</Text>
               <View style={{ height: 12 }} />
               <Button title="Resume" variant="primary" onPress={() => setShowQuitConfirm(false)} fullWidth />
               <View style={{ height: 8 }} />
               <Button title="Forfeit" variant="danger" onPress={async () => {
                 setShowQuitConfirm(false);
-                try { await api.post('/match/result', { won: false, cards_left: human.hand.length, duration_seconds: 0, coins_earned: 0, rank_points_delta: -10, xp_earned: 5 }); await refresh(); } catch {}
+                try { await api.post('/match/result', { match_id: matchId, won: false, cards_left: human.hand.length, duration_seconds: 0, coins_earned: 0, rank_points_delta: -10, xp_earned: 5 }); await refresh(); } catch {}
                 router.replace('/(tabs)/lobby');
               }} fullWidth />
             </View>

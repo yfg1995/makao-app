@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/services/auth';
-import { Button, Pill, NoMoneyFooter } from '../../src/components/UI';
+import { Pill, NoMoneyFooter } from '../../src/components/UI';
 import { theme } from '../../src/theme';
 import { api } from '../../src/services/api';
 import { OutOfCoinsModal } from '../../src/components/OutOfCoinsModal';
@@ -13,19 +13,27 @@ import { OutOfCoinsModal } from '../../src/components/OutOfCoinsModal';
 export default function Lobby() {
   const router = useRouter();
   const { user, refresh } = useAuth();
+  const { width } = useWindowDimensions();
   const [refreshing, setRefreshing] = useState(false);
   const [dailyAvail, setDailyAvail] = useState(false);
   const [starting, setStarting] = useState(false);
   const [showOOC, setShowOOC] = useState(false);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await refresh();
-    try { const { data } = await api.get('/daily/status'); setDailyAvail(!!data.can_claim); } catch {}
-    setRefreshing(false);
-  };
+  const compact = width < 380;
 
-  useEffect(() => { onRefresh(); }, []);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+      const { data } = await api.get('/daily/status');
+      setDailyAvail(!!data.can_claim);
+    } catch {
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
+
+  useEffect(() => { onRefresh(); }, [onRefresh]);
 
   const startMatch = async () => {
     if (starting) return;
@@ -70,13 +78,13 @@ export default function Lobby() {
             <Pill icon={<Text>🏆</Text>} value={user.rank_points} label={user.league} />
           </View>
 
-          <LinearGradient colors={[theme.colors.primary, theme.colors.accent]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.hero}>
+          <LinearGradient colors={[theme.colors.primary, theme.colors.accent]} start={{x:0,y:0}} end={{x:1,y:1}} style={[styles.hero, compact && styles.heroCompact]}>
             <View style={{flex:1}}>
               <Text style={styles.heroLabel}>Quick Match</Text>
               <Text style={styles.heroTitle}>1 vs 3 Bots</Text>
               <Text style={styles.heroSub}>Entry: 1 🎫 or 100 🪙 • ~5 min</Text>
             </View>
-            <TouchableOpacity activeOpacity={0.9} onPress={startMatch} disabled={starting} style={[styles.heroBtn, starting && { opacity: 0.7 }]}>
+            <TouchableOpacity activeOpacity={0.9} onPress={startMatch} disabled={starting} style={[styles.heroBtn, compact && styles.heroBtnCompact, starting && { opacity: 0.7 }]}>
               {starting ? (
                 <ActivityIndicator color="#0E0B1F" />
               ) : (
@@ -88,7 +96,7 @@ export default function Lobby() {
             </TouchableOpacity>
           </LinearGradient>
 
-          <View style={styles.gridRow}>
+          <View style={[styles.gridRow, compact && styles.gridColumn]}>
             <TouchableOpacity style={[styles.tile, { backgroundColor: '#3B2A78' }]} onPress={() => router.push('/(tabs)/earn')}>
               <Ionicons name="gift" color={theme.colors.gold} size={28} />
               <Text style={styles.tileTitle}>Daily Reward</Text>
@@ -101,14 +109,14 @@ export default function Lobby() {
               <Text style={styles.tileSub}>Daily goals</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.gridRow}>
+          <View style={[styles.gridRow, compact && styles.gridColumn]}>
             <TouchableOpacity style={[styles.tile, { backgroundColor: '#5B21B6' }]} onPress={() => router.push('/(tabs)/leaderboard')}>
               <Ionicons name="podium" color="#fff" size={28} />
               <Text style={styles.tileTitle}>Leaderboard</Text>
               <Text style={styles.tileSub}>Climb leagues</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.tile, { backgroundColor: '#155E75' }]} onPress={() => router.push('/(tabs)/earn')}>
-              <Ionicons name="cash-outline" color={theme.colors.accent} size={28} />
+              <Ionicons name="gift" color={theme.colors.accent} size={28} />
               <Text style={styles.tileTitle}>Earn</Text>
               <Text style={styles.tileSub}>Free coins · ads</Text>
             </TouchableOpacity>
@@ -127,8 +135,9 @@ export default function Lobby() {
         visible={showOOC}
         onClose={() => setShowOOC(false)}
         onGoToEarn={() => { setShowOOC(false); router.push('/(tabs)/earn'); }}
-        coins={user.coins}
-        tickets={user.tickets}
+        onRewarded={refresh}
+        currentCoins={user.coins}
+        currentTickets={user.tickets}
       />
     </LinearGradient>
   );
@@ -141,12 +150,15 @@ const styles = StyleSheet.create({
   name: { color: theme.colors.text, fontSize: 24, fontWeight: '900' },
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   hero: { flexDirection: 'row', alignItems: 'center', borderRadius: theme.radius.lg, padding: 20, marginBottom: 16, shadowColor: theme.colors.primary, shadowOpacity: 0.5, shadowRadius: 16, elevation: 6 },
+  heroCompact: { flexDirection: 'column', alignItems: 'stretch', gap: 14 },
   heroLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 12, letterSpacing: 1.5, fontWeight: '700' },
   heroTitle: { color: '#fff', fontSize: 26, fontWeight: '900', marginTop: 4 },
   heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 4 },
   heroBtn: { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: theme.radius.pill, gap: 4 },
+  heroBtnCompact: { justifyContent: 'center' },
   heroBtnText: { color: '#0E0B1F', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
   gridRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  gridColumn: { flexDirection: 'column' },
   tile: { flex: 1, borderRadius: theme.radius.lg, padding: 16, minHeight: 110, borderWidth: 1, borderColor: theme.colors.border, position: 'relative' },
   tileTitle: { color: '#fff', fontWeight: '800', marginTop: 10, fontSize: 16 },
   tileSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 },

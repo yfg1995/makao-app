@@ -71,7 +71,7 @@ export default function Daily() {
           <View style={styles.claimCard}>
             {status?.can_claim ? (
               <>
-                <Text style={styles.claimTitle}>Today's reward: +{status.today_reward} coins</Text>
+                <Text style={styles.claimTitle}>Today reward: +{status.today_reward} coins</Text>
                 <Button title="Claim Now" onPress={claim} loading={busy} fullWidth />
               </>
             ) : status ? (

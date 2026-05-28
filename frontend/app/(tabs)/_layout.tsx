@@ -2,7 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
-import { Platform, View } from 'react-native';
+import { Platform } from 'react-native';
 
 export default function TabsLayout() {
   return (
@@ -25,7 +25,7 @@ export default function TabsLayout() {
             lobby: 'game-controller',
             missions: 'trophy',
             leaderboard: 'podium',
-            earn: 'cash-outline',
+            earn: 'gift',
             profile: 'person',
           };
           return <Ionicons name={map[route.name] || 'help'} color={color} size={size} />;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Alert, ScrollView, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../src/services/auth';
 import { Button, NoMoneyFooter } from '../src/components/UI';
 import { theme } from '../src/theme';
@@ -9,55 +9,55 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Login() {
   const router = useRouter();
-  const { signInGuest, signInWithEmergent, user } = useAuth();
+  const { signInGuest, registerWithEmail, loginWithEmail, user } = useAuth();
   const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [guestBusy, setGuestBusy] = useState(false);
 
   useEffect(() => {
     if (user) router.replace('/(tabs)/lobby');
-  }, [user]);
+  }, [router, user]);
 
-  // On web, detect ?session_id in URL fragment (#session_id=...)
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
+  const authMessage = (e: any) => {
+    const code = e?.code || '';
+    if (code.includes('email-already-in-use')) return 'That email is already registered.';
+    if (code.includes('invalid-email')) return 'Enter a valid email address.';
+    if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'Email or password is incorrect.';
+    if (code.includes('weak-password')) return 'Password must be at least 6 characters.';
+    if (code.includes('network-request-failed')) return 'Network error. Try again.';
+    return e?.response?.data?.detail || e?.message || 'Could not complete authentication.';
+  };
+
+  const submitEmail = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || password.length < 6) {
+      Alert.alert('Check details', 'Enter an email and a password with at least 6 characters.');
+      return;
+    }
+    setAuthBusy(true);
     try {
-      const hash = window.location.hash || '';
-      const m = hash.match(/session_id=([^&]+)/);
-      if (m && m[1]) {
-        (async () => {
-          setBusy(true);
-          try {
-            await signInWithEmergent(decodeURIComponent(m[1]));
-            window.history.replaceState(null, '', window.location.pathname);
-            router.replace('/(tabs)/lobby');
-          } catch (e: any) {
-            Alert.alert('Login failed', e?.response?.data?.detail || 'Try again');
-          } finally { setBusy(false); }
-        })();
+      if (mode === 'register') {
+        await registerWithEmail(trimmedEmail, password, name.trim() || undefined);
+      } else {
+        await loginWithEmail(trimmedEmail, password);
       }
-    } catch {}
-  }, []);
+      router.replace('/(tabs)/lobby');
+    } catch (e: any) {
+      Alert.alert(mode === 'register' ? 'Registration failed' : 'Login failed', authMessage(e));
+    } finally { setAuthBusy(false); }
+  };
 
   const guest = async () => {
-    setBusy(true);
+    setGuestBusy(true);
     try {
       await signInGuest(name.trim() || undefined);
       router.replace('/(tabs)/lobby');
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.detail || 'Could not start guest session');
-    } finally { setBusy(false); }
-  };
-
-  const google = async () => {
-    if (Platform.OS !== 'web') {
-      // In native we use Linking. The redirect URL must be the app URL.
-      const redirectUrl = `${process.env.EXPO_PUBLIC_BACKEND_URL || ''}/login`;
-      const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-      await Linking.openURL(authUrl);
-      return;
-    }
-    const redirectUrl = window.location.origin + '/login';
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    } finally { setGuestBusy(false); }
   };
 
   return (
@@ -82,10 +82,41 @@ export default function Login() {
               placeholderTextColor={theme.colors.textMuted}
               maxLength={20}
             />
-            <Button title="Play as Guest" onPress={guest} loading={busy} fullWidth />
+
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              placeholderTextColor={theme.colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+            />
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="At least 6 characters"
+              placeholderTextColor={theme.colors.textMuted}
+              secureTextEntry
+              textContentType={mode === 'register' ? 'newPassword' : 'password'}
+            />
+
+            <Button title={mode === 'register' ? 'Create Account' : 'Log In'} onPress={submitEmail} loading={authBusy} fullWidth />
+            <View style={{ height: 10 }} />
+            <Button
+              title={mode === 'register' ? 'I already have an account' : 'Create a new account'}
+              variant="ghost"
+              onPress={() => setMode(mode === 'register' ? 'login' : 'register')}
+              fullWidth
+            />
             <View style={{ height: 12 }} />
-            <Button title="Continue with Google" variant="secondary" onPress={google} fullWidth />
-            <Text style={styles.fine}>Guest progress lives on this device. Sign in with Google to sync.</Text>
+            <Button title="Continue as Guest" variant="secondary" onPress={guest} loading={guestBusy} fullWidth />
+            <Text style={styles.fine}>Guest progress lives on this device. Email login keeps your account available after reinstall or device change.</Text>
           </View>
 
           <NoMoneyFooter />

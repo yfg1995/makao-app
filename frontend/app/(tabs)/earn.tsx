@@ -29,12 +29,12 @@ interface DailyStatus {
 }
 
 /**
- * Earn screen — the ONLY place to gain free coins. Replaces the old Shop.
+ * Earn screen - the main place to gain free coins.
  *
- * Strict rules (USER OVERRIDE):
- *   - No IAP, no real-money purchase, no coin packs, no Google Play Billing.
- *   - Virtual coins have no monetary value and cannot be cashed out.
- *   - Coins can ONLY be earned by:
+ * Rules:
+ *   - No IAP, coin purchases, real-money winnings, betting, or gambling.
+ *   - Virtual coins have no monetary value.
+ *   - Coins can be earned by:
  *       1) Watching a pair of mock ads (2 ads = 100 coins, daily-capped)
  *       2) Claiming the daily reward
  */
@@ -119,7 +119,7 @@ export default function Earn() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
         >
           <Text style={styles.heading}>Earn Coins</Text>
-          <Text style={styles.sub}>Free coins only. No purchases. No real money.</Text>
+          <Text style={styles.sub}>Free coins only. No IAP or coin purchases.</Text>
 
           <View style={styles.balRow}>
             <Pill icon={<Text>🪙</Text>} value={user.coins} label="Coins" />
@@ -189,14 +189,12 @@ export default function Earn() {
             />
           </View>
 
-          {/* === Strict legal text === */}
+          {/* === Value notice === */}
           <View style={styles.legalCard}>
             <Ionicons name="shield-checkmark" size={20} color={theme.colors.success} />
             <Text style={styles.legalText}>
-              No gambling, no betting, no real-money prizes, no crypto, no cash-out,
-              no purchases, no IAP. Virtual coins have no monetary value. Coins/items
-              cannot be withdrawn, sold, transferred, exchanged, redeemed for money,
-              crypto, prizes, or anything of real-world value.
+              No gambling, no betting, no real-money winnings, no IAP or coin
+              purchases. Coins have no cash value; rewards are virtual only.
             </Text>
           </View>
         </ScrollView>
@@ -218,7 +216,7 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 40 },
   heading: { color: theme.colors.text, fontSize: 26, fontWeight: '900' },
   sub: { color: theme.colors.textMuted, fontSize: 13, marginTop: 4, marginBottom: 12 },
-  balRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  balRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
 
   heroCard: {
     borderRadius: theme.radius.lg,
@@ -239,6 +237,8 @@ const styles = StyleSheet.create({
   dailyCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
     padding: 14,
     borderRadius: theme.radius.lg,
     backgroundColor: theme.colors.surface,
@@ -259,5 +259,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.success,
   },
-  legalText: { color: theme.colors.text, fontSize: 12, lineHeight: 17, flex: 1 },
+  legalText: { color: theme.colors.text, fontSize: 12, lineHeight: 17, flex: 1, minWidth: 220 },
 });

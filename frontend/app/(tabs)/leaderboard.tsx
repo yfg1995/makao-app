@@ -2,13 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
 import { api } from '../../src/services/api';
 import { NoMoneyFooter } from '../../src/components/UI';
 
+interface LeaderboardEntry {
+  id: string;
+  rank: number;
+  username: string;
+  league: string;
+  level: number;
+  rank_points: number;
+  is_me?: boolean;
+}
+
 export default function Leaderboard() {
-  const [entries, setEntries] = useState<any[]>([]);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {

@@ -5,6 +5,13 @@ const KEYS = {
   settings: 'cra_settings',
 };
 
+export interface AppSettings {
+  sound: boolean;
+  haptics: boolean;
+}
+
+const DEFAULT_SETTINGS: AppSettings = { sound: true, haptics: true };
+
 export const storage = {
   async getToken(): Promise<string | null> {
     return AsyncStorage.getItem(KEYS.token);
@@ -15,11 +22,11 @@ export const storage = {
   async clearToken() {
     return AsyncStorage.removeItem(KEYS.token);
   },
-  async getSettings(): Promise<any> {
+  async getSettings(): Promise<AppSettings> {
     const s = await AsyncStorage.getItem(KEYS.settings);
-    try { return s ? JSON.parse(s) : { sound: true, haptics: true }; } catch { return { sound: true, haptics: true }; }
+    try { return s ? { ...DEFAULT_SETTINGS, ...JSON.parse(s) } : DEFAULT_SETTINGS; } catch { return DEFAULT_SETTINGS; }
   },
-  async setSettings(v: any) {
+  async setSettings(v: AppSettings) {
     return AsyncStorage.setItem(KEYS.settings, JSON.stringify(v));
   }
 };

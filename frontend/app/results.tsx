@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,12 +6,15 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '../src/theme';
 import { Button, NoMoneyFooter } from '../src/components/UI';
 import { Ionicons } from '@expo/vector-icons';
-import { adsService } from '../src/services/ads';
+import { api } from '../src/services/api';
 import { useAuth } from '../src/services/auth';
+import { OutOfCoinsModal } from '../src/components/OutOfCoinsModal';
 
 export default function Results() {
   const router = useRouter();
-  const { refresh } = useAuth();
+  const { user, refresh } = useAuth();
+  const [starting, setStarting] = useState(false);
+  const [showOOC, setShowOOC] = useState(false);
   const params = useLocalSearchParams<{ won?: string; coins?: string; rp?: string; xp?: string; duration?: string; cardsLeft?: string; winnerName?: string }>();
   const won = params.won === '1';
   const coins = parseInt(params.coins || '0', 10);
@@ -28,13 +31,26 @@ export default function Results() {
       Animated.timing(scale, { toValue: 1, duration: 600, easing: Easing.out(Easing.back(1.5)), useNativeDriver: true }),
       Animated.timing(fade, { toValue: 1, duration: 500, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [fade, scale]);
 
-  const watchAd = async () => {
-    const r = await adsService.showRewardedAd();
-    if (r.ok) {
+  const playAgain = async () => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const { data } = await api.post('/match/start', {});
       await refresh();
-      alert(`Bonus +${r.reward_coins || 50} coins! (mock ad)`);
+      router.replace({ pathname: '/game', params: { matchId: data.match_id, paidWith: data.paid_with } });
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const code = e?.response?.data?.detail?.code;
+      if (status === 402 || code === 'INSUFFICIENT_BALANCE') {
+        setShowOOC(true);
+      } else {
+        const msg = e?.response?.data?.detail?.message || e?.response?.data?.detail || 'Could not start match';
+        alert(String(msg));
+      }
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -50,18 +66,24 @@ export default function Results() {
 
           <View style={styles.statsCard}>
             <Stat label="Coins" value={`+${coins}`} icon="🪙" />
-            <Stat label="Rank Points" value={`${rp >= 0 ? '+' : ''}${rp}"`} icon="🏆" negative={rp < 0} />
+            <Stat label="Rank Points" value={`${rp >= 0 ? '+' : ''}${rp}`} icon="🏆" negative={rp < 0} />
             <Stat label="XP" value={`+${xp}`} icon="✨" />
             <Stat label="Duration" value={`${Math.floor(duration / 60)}m ${duration % 60}s`} icon="⏱" />
           </View>
 
-          <Button title="Play Again" onPress={() => router.replace('/game')} fullWidth />
-          <View style={{ height: 10 }} />
-          <Button title="Watch Ad: +50 Coins" variant="secondary" onPress={watchAd} fullWidth />
+          <Button title="Play Again" onPress={playAgain} loading={starting} fullWidth />
           <View style={{ height: 10 }} />
           <Button title="Back to Lobby" variant="ghost" onPress={() => router.replace('/(tabs)/lobby')} fullWidth />
         </Animated.View>
         <NoMoneyFooter />
+        <OutOfCoinsModal
+          visible={showOOC}
+          onClose={() => setShowOOC(false)}
+          onGoToEarn={() => { setShowOOC(false); router.replace('/(tabs)/earn'); }}
+          onRewarded={refresh}
+          currentCoins={user?.coins ?? 0}
+          currentTickets={user?.tickets ?? 0}
+        />
       </SafeAreaView>
     </LinearGradient>
   );
@@ -72,7 +94,7 @@ function Stat({ label, value, icon, negative }: { label: string; value: string; 
     <View style={styles.statRow}>
       <Text style={styles.statIcon}>{icon}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, negative && { color: theme.colors.danger }]}>{value.replace('"','')}</Text>
+      <Text style={[styles.statValue, negative && { color: theme.colors.danger }]}>{value}</Text>
     </View>
   );
 }

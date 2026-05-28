@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, StyleProp, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
@@ -15,7 +15,12 @@ interface ButtonProps {
 }
 
 export function Button({ title, onPress, variant='primary', disabled, loading, small, icon, fullWidth }: ButtonProps) {
-  const baseStyle = [styles.btn, small && styles.btnSmall, fullWidth && { alignSelf: 'stretch' }, disabled && { opacity: 0.55 }];
+  const baseStyle: StyleProp<ViewStyle> = [
+    styles.btn,
+    small ? styles.btnSmall : null,
+    fullWidth ? styles.fullWidth : null,
+    disabled ? styles.disabled : null,
+  ];
   if (variant === 'primary') {
     return (
       <TouchableOpacity activeOpacity={0.85} disabled={disabled || loading} onPress={onPress} style={baseStyle}>
@@ -86,13 +91,17 @@ export function SectionTitle({ children, right }: { children: React.ReactNode; r
 
 export function NoMoneyFooter() {
   return (
-    <Text style={styles.disclaimer}>Virtual currency has no monetary value. Free-to-play, no real-money betting.</Text>
+    <Text style={styles.disclaimer}>
+      No gambling, no betting, no real-money winnings, no IAP or coin purchases. Coins have no cash value; rewards are virtual only.
+    </Text>
   );
 }
 
 const styles = StyleSheet.create({
   btn: { borderRadius: theme.radius.pill, overflow: 'hidden', minHeight: 48, justifyContent: 'center' },
   btnSmall: { minHeight: 36 },
+  fullWidth: { alignSelf: 'stretch' },
+  disabled: { opacity: 0.55 },
   gradient: { paddingVertical: 14, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   gradientSmall: { paddingVertical: 8, paddingHorizontal: 16 },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },

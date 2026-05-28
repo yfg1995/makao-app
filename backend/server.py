@@ -2,12 +2,14 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Header
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 import os
 import uuid
 import httpx
 from dotenv import load_dotenv
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 load_dotenv()
 
@@ -29,6 +31,10 @@ app.add_middleware(
 )
 
 EMERGENT_AUTH_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "card-rush-arena-makao")
+FIREBASE_ISSUER = f"https://securetoken.google.com/{FIREBASE_PROJECT_ID}"
+FIREBASE_CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+_firebase_certs_cache: Dict[str, Any] = {"expires_at": None, "certs": {}}
 
 # ---------- Models ----------
 class UserPublic(BaseModel):
@@ -48,6 +54,7 @@ class UserPublic(BaseModel):
     created_at: Optional[str] = None
 
 class MatchResultIn(BaseModel):
+    match_id: str
     won: bool
     cards_left: int = 0
     duration_seconds: int = 0
@@ -55,11 +62,12 @@ class MatchResultIn(BaseModel):
     rank_points_delta: int = 0
     xp_earned: int = 0
 
-class PurchaseIn(BaseModel):
-    item_id: str
-
 class MissionClaimIn(BaseModel):
     mission_id: str
+
+class FirebaseAuthIn(BaseModel):
+    id_token: str = Field(..., min_length=20)
+    username: Optional[str] = None
 
 # Economy constants — server is source of truth
 MATCH_ENTRY_COIN_COST = 100
@@ -112,6 +120,60 @@ def _user_to_public(u: Dict[str, Any]) -> Dict[str, Any]:
         "guest_mode": u.get("guest_mode", False),
         "created_at": u.get("created_at"),
     }
+
+async def _get_firebase_certs() -> Dict[str, str]:
+    expires_at = _firebase_certs_cache.get("expires_at")
+    if expires_at and isinstance(expires_at, datetime) and expires_at > _now():
+        return _firebase_certs_cache.get("certs") or {}
+
+    async with httpx.AsyncClient(timeout=10.0) as hc:
+        try:
+            r = await hc.get(FIREBASE_CERTS_URL)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Firebase certs error: {e}")
+    if r.status_code != 200:
+        raise HTTPException(status_code=502, detail="Firebase certs unavailable")
+
+    certs = r.json()
+    _firebase_certs_cache["certs"] = certs
+    _firebase_certs_cache["expires_at"] = _now() + timedelta(hours=1)
+    return certs
+
+async def _verify_firebase_id_token(id_token: str) -> Dict[str, Any]:
+    try:
+        import jwt
+    except ImportError:
+        raise HTTPException(status_code=500, detail="PyJWT dependency is required for Firebase Auth")
+
+    try:
+        header = jwt.get_unverified_header(id_token)
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+
+    kid = header.get("kid")
+    if header.get("alg") != "RS256" or not kid:
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+
+    cert = (await _get_firebase_certs()).get(kid)
+    if not cert:
+        raise HTTPException(status_code=401, detail="Unknown Firebase token key")
+
+    try:
+        claims = jwt.decode(
+            id_token,
+            cert,
+            algorithms=["RS256"],
+            audience=FIREBASE_PROJECT_ID,
+            issuer=FIREBASE_ISSUER,
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Firebase token expired")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+
+    if not (claims.get("user_id") or claims.get("sub")):
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+    return claims
 
 async def get_current_user(
     request: Request,
@@ -203,6 +265,66 @@ async def auth_session(response: Response, x_session_id: Optional[str] = Header(
     response.set_cookie(
         "session_token", session_token,
         max_age=7*24*3600, httponly=True, secure=True, samesite="none", path="/"
+    )
+    return {"session_token": session_token, "user": _user_to_public(user)}
+
+@api.post("/auth/firebase")
+async def auth_firebase(payload: FirebaseAuthIn, response: Response):
+    claims = await _verify_firebase_id_token(payload.id_token)
+    firebase_uid = claims.get("user_id") or claims.get("sub")
+    email = claims.get("email")
+    picture = claims.get("picture")
+    requested_name = (payload.username or "").strip()[:24]
+    default_name = claims.get("name") or (email.split("@")[0] if email else "Player")
+    username = requested_name if len(requested_name) >= 2 else default_name
+
+    user = await db.users.find_one({"firebase_uid": firebase_uid})
+    if not user and email:
+        user = await db.users.find_one({"email": email})
+
+    if not user:
+        uid = str(uuid.uuid4())
+        user = {
+            "_id": uid,
+            "firebase_uid": firebase_uid,
+            "username": username,
+            "email": email,
+            "picture": picture,
+            "coins": 1000,
+            "tickets": 5,
+            "rank_points": 0,
+            "league": "Bronze",
+            "level": 1,
+            "xp": 0,
+            "daily_streak": 0,
+            "last_daily_claim": None,
+            "guest_mode": False,
+            "created_at": _now().isoformat(),
+        }
+        await db.users.insert_one(user)
+    else:
+        updates = {"firebase_uid": firebase_uid, "email": email, "guest_mode": False}
+        if picture:
+            updates["picture"] = picture
+        if requested_name and requested_name != user.get("username"):
+            updates["username"] = requested_name
+        await db.users.update_one({"_id": user["_id"]}, {"$set": updates})
+        user.update(updates)
+    user = await _ensure_user(user)
+
+    session_token = str(uuid.uuid4())
+    expires_at = _now() + timedelta(days=30)
+    await db.sessions.insert_one({
+        "token": session_token,
+        "user_id": user["_id"],
+        "expires_at": expires_at,
+        "created_at": _now(),
+        "provider": "firebase",
+    })
+
+    response.set_cookie(
+        "session_token", session_token,
+        max_age=30*24*3600, httponly=True, secure=True, samesite="none", path="/"
     )
     return {"session_token": session_token, "user": _user_to_public(user)}
 
@@ -394,6 +516,13 @@ async def ads_watch(user=Depends(get_current_user)):
 
 @api.post("/match/result")
 async def match_result(payload: MatchResultIn, user=Depends(get_current_user)):
+    active_match = await db.matches_active.find_one_and_delete({
+        "_id": payload.match_id,
+        "user_id": user["_id"],
+    })
+    if not active_match:
+        raise HTTPException(status_code=400, detail="Match was not started or was already completed")
+
     coins = max(0, int(payload.coins_earned))
     rp_delta = int(payload.rank_points_delta)
     xp = max(0, int(payload.xp_earned))
@@ -416,7 +545,9 @@ async def match_result(payload: MatchResultIn, user=Depends(get_current_user)):
         }}
     )
     await db.matches.insert_one({
-        "_id": str(uuid.uuid4()), "user_id": user["_id"], "won": payload.won,
+        "_id": str(uuid.uuid4()), "match_id": payload.match_id,
+        "user_id": user["_id"], "won": payload.won,
+        "entry_paid_with": active_match.get("entry_paid_with"),
         "cards_left": payload.cards_left, "duration_seconds": payload.duration_seconds,
         "coins_earned": coins, "rank_points_delta": rp_delta, "xp_earned": xp,
         "at": _now().isoformat(),
@@ -462,31 +593,52 @@ async def daily_status(user=Depends(get_current_user)):
 
 @api.post("/daily/claim")
 async def daily_claim(user=Depends(get_current_user)):
+    now = _now()
     last = user.get("last_daily_claim")
+    claim_filter_extra = []
     if last:
         try:
-            last_dt = datetime.fromisoformat(last)
+            last_dt = last if isinstance(last, datetime) else datetime.fromisoformat(last)
             if last_dt.tzinfo is None:
                 last_dt = last_dt.replace(tzinfo=timezone.utc)
-            if (_now() - last_dt).total_seconds() < 24*3600:
+            if (now - last_dt).total_seconds() < 24*3600:
                 raise HTTPException(status_code=400, detail="Already claimed today")
-            streak_reset = (_now() - last_dt).total_seconds() > 48*3600
+            streak_reset = (now - last_dt).total_seconds() > 48*3600
         except HTTPException:
             raise
         except Exception:
+            claim_filter_extra.append({"last_daily_claim": last})
             streak_reset = False
     else:
         streak_reset = False
     streak = 0 if streak_reset else int(user.get("daily_streak", 0))
-    rewards = [100, 125, 150, 200, 300, 500, 750]
+    rewards = [50, 75, 100, 150, 200, 300, 500]
     reward = rewards[min(streak, len(rewards)-1)]
-    new_streak = (streak + 1) % (len(rewards) + 1) or 1
-    new_coins = int(user.get("coins", 0)) + reward
-    await db.users.update_one({"_id": user["_id"]}, {"$set": {
-        "coins": new_coins, "daily_streak": new_streak, "last_daily_claim": _now().isoformat()
-    }})
-    user["coins"] = new_coins; user["daily_streak"] = new_streak
-    return {"reward": reward, "streak": new_streak, "user": _user_to_public(user)}
+    new_streak = min(streak + 1, len(rewards))
+    cutoff_dt = now - timedelta(hours=24)
+    cutoff = cutoff_dt.isoformat()
+    updated_user = await db.users.find_one_and_update(
+        {
+            "_id": user["_id"],
+            "$or": [
+                {"last_daily_claim": None},
+                {"last_daily_claim": {"$exists": False}},
+                {"last_daily_claim": {"$lte": cutoff}},
+                {"last_daily_claim": {"$lte": cutoff_dt}},
+            ] + claim_filter_extra,
+        },
+        {
+            "$inc": {"coins": reward},
+            "$set": {
+                "daily_streak": new_streak,
+                "last_daily_claim": now.isoformat(),
+            },
+        },
+        return_document=ReturnDocument.AFTER,
+    )
+    if not updated_user:
+        raise HTTPException(status_code=400, detail="Already claimed today")
+    return {"reward": reward, "streak": new_streak, "user": _user_to_public(updated_user)}
 
 MISSIONS = [
     {"id": "win_1", "title": "Win 1 match", "goal": 1, "metric": "wins_today", "reward_coins": 100},
@@ -517,29 +669,46 @@ async def missions_claim(payload: MissionClaimIn, user=Depends(get_current_user)
     mission = next((m for m in MISSIONS if m["id"] == payload.mission_id), None)
     if not mission:
         raise HTTPException(status_code=404, detail="Mission not found")
-    existing = await db.mission_claims.find_one({"user_id": user["_id"], "day": today, "mission_id": payload.mission_id})
-    if existing:
-        raise HTTPException(status_code=400, detail="Already claimed")
     # validate progress
     plays_today = await db.matches.count_documents({"user_id": user["_id"], "at": {"$gte": today}})
     wins_today = await db.matches.count_documents({"user_id": user["_id"], "at": {"$gte": today}, "won": True})
     metric_val = {"wins_today": wins_today, "plays_today": plays_today, "actions_today": int(user.get("actions_today_count",0))}.get(mission["metric"], 0)
     if metric_val < mission["goal"]:
         raise HTTPException(status_code=400, detail="Mission not complete")
-    new_coins = int(user.get("coins",0)) + int(mission["reward_coins"])
-    await db.users.update_one({"_id": user["_id"]}, {"$set": {"coins": new_coins}})
-    await db.mission_claims.insert_one({"user_id": user["_id"], "day": today, "mission_id": payload.mission_id, "at": _now().isoformat()})
-    user["coins"] = new_coins
-    return {"reward": mission["reward_coins"], "user": _user_to_public(user)}
 
-# NOTE: All In-App-Purchase / coin-bundle / ticket-pack endpoints have been
-# permanently removed per product policy. There is NO way to buy coins or
-# tickets with real money or via virtual exchange. Coins are only earned via:
+    try:
+        existing = await db.mission_claims.find_one_and_update(
+            {"user_id": user["_id"], "day": today, "mission_id": payload.mission_id},
+            {"$setOnInsert": {
+                "user_id": user["_id"],
+                "day": today,
+                "mission_id": payload.mission_id,
+                "at": _now().isoformat(),
+            }},
+            upsert=True,
+            return_document=ReturnDocument.BEFORE,
+        )
+    except DuplicateKeyError:
+        raise HTTPException(status_code=400, detail="Already claimed")
+    if existing:
+        raise HTTPException(status_code=400, detail="Already claimed")
+
+    reward = int(mission["reward_coins"])
+    updated_user = await db.users.find_one_and_update(
+        {"_id": user["_id"]},
+        {"$inc": {"coins": reward}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not updated_user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return {"reward": reward, "user": _user_to_public(updated_user)}
+
+# Coin-bundle and ticket-pack endpoints have been
+# permanently removed. Coins are earned via:
 #   • gameplay rewards (/match/result)
 #   • daily reward (/daily/claim)
 #   • watching mock ads in pairs (/ads/watch — 2 ads = 100 coins)
-# The legacy /ads/reward (instant +50) endpoint has also been removed in favor
-# of the paired /ads/watch system with strict server-side daily cap.
+# The paired /ads/watch system has a strict server-side daily cap.
 
 @api.patch("/profile")
 async def update_profile(payload: Dict[str, Any], user=Depends(get_current_user)):
@@ -574,6 +743,13 @@ async def seed_bots():
             "created_at": _now().isoformat()
         })
 
+async def ensure_indexes():
+    await db.users.create_index([("firebase_uid", 1)], sparse=True)
+    await db.users.create_index([("email", 1)], sparse=True)
+    await db.ad_progress.create_index([("user_id", 1), ("day", 1)], unique=True)
+    await db.mission_claims.create_index([("user_id", 1), ("day", 1), ("mission_id", 1)], unique=True)
+    await db.matches_active.create_index([("user_id", 1), ("started_at", 1)])
+
 @app.on_event("startup")
 async def on_startup():
     # Clean up legacy unique indexes from prior schemas (e.g., user_id_1)
@@ -588,6 +764,7 @@ async def on_startup():
                 pass
     except Exception:
         pass
+    await ensure_indexes()
     await seed_bots()
 
 app.include_router(api)

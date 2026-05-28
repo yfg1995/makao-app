@@ -16,7 +16,7 @@ export default function Splash() {
       Animated.timing(scale, { toValue: 1, duration: 700, easing: Easing.out(Easing.back(1.3)), useNativeDriver: true }),
       Animated.timing(fade, { toValue: 1, duration: 700, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [fade, scale]);
 
   useEffect(() => {
     if (loading) return;
@@ -25,7 +25,7 @@ export default function Splash() {
       else router.replace('/login');
     }, 900);
     return () => clearTimeout(t);
-  }, [loading, user]);
+  }, [loading, router, user]);
 
   return (
     <LinearGradient colors={[theme.colors.bg, theme.colors.bgAlt, '#1A0B3A']} style={styles.root}>
@@ -36,11 +36,11 @@ export default function Splash() {
           </LinearGradient>
         </View>
         <Text style={styles.title}>Card Rush Arena</Text>
-        <Text style={styles.tagline}>Fast • Tactical • Free-to-Play</Text>
+        <Text style={styles.tagline}>Fast - Tactical - Free-to-Play</Text>
       </Animated.View>
       <View style={styles.bottom}>
         <ActivityIndicator color={theme.colors.accent} />
-        <Text style={styles.disclaimer}>No real-money gambling. Virtual currency only.</Text>
+        <Text style={styles.disclaimer}>No gambling or betting. Virtual rewards only.</Text>
       </View>
     </LinearGradient>
   );

@@ -6,7 +6,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { AssertNoExtras, StorageBase, StorageItemValue } from "./storage-base";
+import { StorageBase, StorageItemValue } from "./storage-base";
 
 export class Storage extends StorageBase {
   // General KV — backed by AsyncStorage (its built-in web shim uses IndexedDB).
@@ -67,6 +67,3 @@ export class Storage extends StorageBase {
 }
 
 export const storage = new Storage();
-
-// Compile-time guard: any new method must be declared in storage-base.ts first.
-type _NoExtras = AssertNoExtras<Exclude<keyof Storage, keyof StorageBase>>;

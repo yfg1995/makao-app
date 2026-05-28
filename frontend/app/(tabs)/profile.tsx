@@ -5,13 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
-import { Button, Pill, NoMoneyFooter } from '../../src/components/UI';
+import { Button, NoMoneyFooter } from '../../src/components/UI';
 import { useAuth } from '../../src/services/auth';
 import { api } from '../../src/services/api';
 
 export default function Profile() {
   const router = useRouter();
-  const { user, signOut, refresh, setUser } = useAuth();
+  const { user, signOut, setUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.username || '');
   const [busy, setBusy] = useState(false);
@@ -67,7 +67,7 @@ export default function Profile() {
                 <Text style={styles.name}>{user.username}</Text>
                 <Text style={styles.sub}>{user.guest_mode ? 'Guest account' : (user.email || 'Signed in')}</Text>
                 <View style={[styles.leaguePill, { borderColor: leagueColor(user.league) }]}>
-                  <Text style={[styles.leagueText, { color: leagueColor(user.league) }]}>{user.league} · Lv {user.level}</Text>
+                  <Text style={[styles.leagueText, { color: leagueColor(user.league) }]}>{user.league} - Lv {user.level}</Text>
                 </View>
                 <Button title="Edit Name" variant="secondary" small onPress={() => setEditing(true)} />
               </>
@@ -75,18 +75,18 @@ export default function Profile() {
           </View>
 
           <View style={styles.statsGrid}>
-            <StatTile label="Coins" value={user.coins} icon="🪙" />
-            <StatTile label="Tickets" value={user.tickets} icon="🎫" />
-            <StatTile label="Rank Points" value={user.rank_points} icon="🏆" />
-            <StatTile label="XP" value={user.xp} icon="✨" />
-            <StatTile label="Daily Streak" value={user.daily_streak} icon="🔥" />
-            <StatTile label="Level" value={user.level} icon="⭐" />
+            <StatTile label="Coins" value={user.coins} icon="C" />
+            <StatTile label="Tickets" value={user.tickets} icon="T" />
+            <StatTile label="Rank Points" value={user.rank_points} icon="RP" />
+            <StatTile label="XP" value={user.xp} icon="XP" />
+            <StatTile label="Daily Streak" value={user.daily_streak} icon="S" />
+            <StatTile label="Level" value={user.level} icon="Lv" />
           </View>
 
           {user.guest_mode && (
             <View style={styles.warnCard}>
               <Ionicons name="alert-circle" size={20} color={theme.colors.warning} />
-              <Text style={styles.warnText}>Guest progress can be lost. Sign in with Google to back up.</Text>
+              <Text style={styles.warnText}>Guest progress can be lost. Register or log in with email to keep an account.</Text>
             </View>
           )}
 

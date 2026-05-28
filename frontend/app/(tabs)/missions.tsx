@@ -8,9 +8,19 @@ import { Button, NoMoneyFooter } from '../../src/components/UI';
 import { api } from '../../src/services/api';
 import { useAuth } from '../../src/services/auth';
 
+interface Mission {
+  id: string;
+  title: string;
+  goal: number;
+  reward_coins: number;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
+}
+
 export default function Missions() {
   const { refresh } = useAuth();
-  const [data, setData] = useState<{ missions: any[]; metrics: any } | null>(null);
+  const [data, setData] = useState<{ missions: Mission[] } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [claiming, setClaiming] = useState<string | null>(null);
 

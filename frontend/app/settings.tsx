@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,7 +22,7 @@ export default function Settings() {
     })();
   }, []);
 
-  const save = async (next: any) => {
+  const save = async (next: { sound: boolean; haptics: boolean }) => {
     await storage.setSettings(next);
   };
 

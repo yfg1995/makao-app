@@ -1,4 +1,11 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  type User as FirebaseUser,
+} from 'firebase/auth';
+import { firebaseAuth } from '../../lib/firebase';
 import { storage } from '../utils/storage';
 import { api } from './api';
 
@@ -22,7 +29,8 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   signInGuest: (username?: string) => Promise<void>;
-  signInWithEmergent: (sessionId: string) => Promise<void>;
+  registerWithEmail: (email: string, password: string, username?: string) => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   setUser: (u: User | null) => void;
@@ -40,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!tok) { setUser(null); return; }
       const { data } = await api.get('/auth/me');
       setUser(data);
-    } catch (e) {
+    } catch {
       setUser(null);
       await storage.clearToken();
     }
@@ -59,20 +67,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user);
   };
 
-  const signInWithEmergent = async (sessionId: string) => {
-    const { data } = await api.post('/auth/session', null, { headers: { 'X-Session-ID': sessionId } });
+  const completeFirebaseSignIn = async (firebaseUser: FirebaseUser, username?: string) => {
+    const idToken = await firebaseUser.getIdToken();
+    const { data } = await api.post('/auth/firebase', {
+      id_token: idToken,
+      username: username || null,
+    });
     await storage.setToken(data.session_token);
     setUser(data.user);
   };
 
+  const registerWithEmail = async (email: string, password: string, username?: string) => {
+    const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+    await completeFirebaseSignIn(credential.user, username);
+  };
+
+  const loginWithEmail = async (email: string, password: string) => {
+    const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+    await completeFirebaseSignIn(credential.user);
+  };
+
   const signOut = async () => {
     try { await api.post('/auth/logout', {}); } catch {}
+    try { await firebaseSignOut(firebaseAuth); } catch {}
     await storage.clearToken();
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInGuest, signInWithEmergent, signOut, refresh, setUser }}>
+    <AuthContext.Provider value={{ user, loading, signInGuest, registerWithEmail, loginWithEmail, signOut, refresh, setUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -31,7 +31,12 @@ export function AdSimulatorModal({
   const [remaining, setRemaining] = useState(duration);
   const [completed, setCompleted] = useState(false);
   const completedRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
   const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     if (!visible) return;
@@ -53,7 +58,7 @@ export function AdSimulatorModal({
             completedRef.current = true;
             setCompleted(true);
             // small delay before firing onComplete so UI updates
-            setTimeout(() => onComplete(), 250);
+            setTimeout(() => onCompleteRef.current(), 250);
           }
           return 0;
         }
@@ -61,7 +66,7 @@ export function AdSimulatorModal({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [visible, duration]);
+  }, [visible, duration, progress]);
 
   const widthInterp = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 

@@ -22,6 +22,7 @@ interface OutOfCoinsModalProps {
   visible: boolean;
   onClose: () => void;
   onRewarded?: () => void; // called after each successful ad or daily claim so caller can refresh
+  onGoToEarn?: () => void;
   currentCoins: number;
   currentTickets: number;
 }
@@ -29,9 +30,9 @@ interface OutOfCoinsModalProps {
 /**
  * Shown when /match/start returns 402 INSUFFICIENT_BALANCE or when a player
  * proactively wants to top up via ads. Offers ONLY: watch mock ad pairs and
- * claim daily reward. No real-money purchase paths exist.
+ * claim daily reward. No IAP or coin purchase paths exist.
  */
-export function OutOfCoinsModal({ visible, onClose, onRewarded, currentCoins, currentTickets }: OutOfCoinsModalProps) {
+export function OutOfCoinsModal({ visible, onClose, onRewarded, onGoToEarn, currentCoins, currentTickets }: OutOfCoinsModalProps) {
   const [progress, setProgress] = useState<AdProgress | null>(null);
   const [showAd, setShowAd] = useState(false);
   const [daily, setDaily] = useState<{ can_claim: boolean; today_reward: number; next_in_seconds: number } | null>(null);
@@ -53,6 +54,7 @@ export function OutOfCoinsModal({ visible, onClose, onRewarded, currentCoins, cu
   }, [visible]);
 
   const onAdComplete = async () => {
+    setShowAd(false);
     try {
       const { data } = await api.post('/ads/watch', {});
       await refresh();
@@ -81,8 +83,10 @@ export function OutOfCoinsModal({ visible, onClose, onRewarded, currentCoins, cu
     }
   };
 
-  const adNumber = progress ? (progress.watched_today % 2) + 1 : 1;
-  const pairProgressLabel = progress ? `${progress.watched_today % 2}/2 ads watched` : '';
+  const pairSize = progress?.pair_size ?? 2;
+  const watchedInPair = progress ? progress.watched_today % pairSize : 0;
+  const adNumber = watchedInPair + 1;
+  const pairProgressLabel = progress ? `${watchedInPair}/${pairSize} ads watched` : '';
   const capReached = !!progress?.daily_cap_reached;
   const canClaimDaily = !!daily?.can_claim;
 
@@ -99,11 +103,11 @@ export function OutOfCoinsModal({ visible, onClose, onRewarded, currentCoins, cu
               </TouchableOpacity>
             </View>
             <Text style={styles.sub}>
-              You don't have enough to start a match (need 1 ticket or 100 coins).
+              You do not have enough to start a match (need 1 ticket or 100 coins).
               You currently have {currentTickets} tickets · {currentCoins} coins.
             </Text>
             <Text style={styles.legal}>
-              No purchases, no IAP, no real money. Earn coins ONLY by watching mock ads or claiming the daily reward.
+              No IAP or coin purchases. Rewards are virtual only and coins have no cash value.
             </Text>
 
             {/* Watch Ad Card */}
@@ -113,7 +117,7 @@ export function OutOfCoinsModal({ visible, onClose, onRewarded, currentCoins, cu
                 <Text style={styles.actionSub}>{capReached ? 'Daily ad limit reached. Come back tomorrow.' : pairProgressLabel}</Text>
                 {progress && (
                   <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${((progress.watched_today % 2) / 2) * 100}%` }]} />
+                    <View style={[styles.progressFill, { width: `${(watchedInPair / pairSize) * 100}%` }]} />
                   </View>
                 )}
               </View>
@@ -143,6 +147,11 @@ export function OutOfCoinsModal({ visible, onClose, onRewarded, currentCoins, cu
                 Ads today: {progress.watched_today}/{progress.daily_cap} · Earned today: {progress.coins_earned_today}/{progress.max_coins_today}
               </Text>
             )}
+
+            <View style={styles.footerActions}>
+              {onGoToEarn ? <Button title="Open Earn" variant="secondary" small onPress={onGoToEarn} /> : null}
+              <Button title="Close" variant="ghost" small onPress={onClose} />
+            </View>
           </View>
         </View>
       </Modal>
@@ -152,7 +161,7 @@ export function OutOfCoinsModal({ visible, onClose, onRewarded, currentCoins, cu
         onClose={() => setShowAd(false)}
         onComplete={onAdComplete}
         adNumber={adNumber}
-        totalAds={2}
+        totalAds={pairSize}
         duration={5}
       />
     </>
@@ -167,15 +176,16 @@ const styles = StyleSheet.create({
   closeBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   sub: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 8 },
   legal: { color: theme.colors.warning, fontSize: 11, lineHeight: 16, marginBottom: 14, fontStyle: 'italic' },
-  actionCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: theme.radius.lg, marginBottom: 12 },
+  actionCard: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', padding: 14, borderRadius: theme.radius.lg, marginBottom: 12 },
   actionTitle: { color: '#fff', fontWeight: '900', fontSize: 15 },
   actionSub: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 2 },
   progressTrack: { height: 6, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 3, marginTop: 8, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: '#fff' },
-  cta: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius.pill, marginLeft: 10 },
+  cta: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius.pill, marginLeft: 10, marginTop: 8 },
   ctaText: { color: '#0E0B1F', fontWeight: '900' },
   dailyCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: theme.radius.md, backgroundColor: theme.colors.bgAlt, borderWidth: 1, borderColor: theme.colors.border },
   dailyTitle: { color: theme.colors.text, fontWeight: '800', fontSize: 14 },
   dailySub: { color: theme.colors.textMuted, fontSize: 11, marginTop: 2 },
   capInfo: { color: theme.colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 10 },
+  footerActions: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' },
 });

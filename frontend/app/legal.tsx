@@ -25,27 +25,25 @@ export default function Legal() {
             <Ionicons name="shield-checkmark" size={22} color={theme.colors.success} />
             <Text style={styles.noticeText}>
               Card Rush Arena is free-to-play and family-friendly.{"\n"}
-              No gambling, no betting, no real-money prizes, no crypto, no cash-out,
-              no purchases, no IAP. Virtual coins have no monetary value.
-              Coins/items cannot be withdrawn, sold, transferred, exchanged,
-              redeemed for money, crypto, prizes, or anything of real-world value.
+              No gambling, no betting, no real-money winnings, no IAP or coin
+              purchases. Coins have no cash value; rewards are virtual only.
             </Text>
           </View>
 
           <Section title="Virtual Currency">
-            Coins, tickets, and rank points are purely in-game virtual items. They have no monetary value. They cannot be withdrawn, sold, transferred, exchanged, or redeemed for money, crypto, prizes, or anything of real-world value.
+            Coins, tickets, and rank points are purely in-game virtual items. They have no cash value and cannot be withdrawn, sold, transferred, exchanged, or redeemed for money or anything of real-world value.
           </Section>
-          <Section title="No Purchases / No IAP">
-            This game contains NO in-app purchases. There is no way to buy coins, tickets, or any other item with real money. Coins are obtained ONLY by watching mock ads or claiming the daily reward.
+          <Section title="No IAP / No Coin Purchases">
+            This game has no in-app purchases, payment flow, or coin purchases. Coins are obtained by playing matches, watching mock ads, or claiming the daily reward.
           </Section>
-          <Section title="No Real-Money Wagering">
-            This game does not involve any form of gambling, betting, wagering, or chance-based prize redemption. Match outcomes do not result in real-world rewards.
+          <Section title="No Gambling / No Betting">
+            Match outcomes affect only virtual in-game progress. They do not involve betting, wagering, real-money winnings, prizes, or anything of real-world value.
           </Section>
           <Section title="Advertising">
-            This MVP build uses a mocked ad service for development. No real third-party ads are served. In a production build, rewarded ads would be served by AdMob.
+            This MVP build uses a mocked ad service for development and testing. No real third-party ads are served in this build.
           </Section>
           <Section title="Privacy">
-            Guest accounts store progress on this device. Google sign-in uses Emergent Auth to sync your username, email, and avatar to your profile. We do not sell personal data.
+            Guest accounts store progress on this device. Email/password accounts use Firebase Authentication and the game API stores your username, email, and gameplay profile. We do not sell personal data.
           </Section>
           <Section title="Age & Region">
             Intended for ages 13+. Some jurisdictions restrict simulated card-game apps; please follow your local laws.
@@ -54,7 +52,7 @@ export default function Legal() {
             By playing, you agree to fair play, not exploiting bugs, and not abusing the rewarded ads system. We may reset progress in response to abuse.
           </Section>
           <Section title="Privacy Policy (Placeholder)">
-            We collect: username, optional email/avatar (Google sign-in), gameplay stats. We do not collect or process payment data in this MVP because there are no purchases.
+            We collect: username, email for registered accounts, and gameplay stats. We do not collect or process payment data in this MVP.
           </Section>
 
           <Text style={styles.contact}>Contact: support@cardrush.example (placeholder)</Text>

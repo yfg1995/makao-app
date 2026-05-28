@@ -20,7 +20,6 @@ export default function RootLayout() {
           >
             <Stack.Screen name="index" />
             <Stack.Screen name="login" />
-            <Stack.Screen name="auth-callback" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="game" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="results" options={{ animation: 'fade' }} />
