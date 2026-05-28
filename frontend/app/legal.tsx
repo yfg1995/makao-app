@@ -24,17 +24,22 @@ export default function Legal() {
           <View style={styles.notice}>
             <Ionicons name="shield-checkmark" size={22} color={theme.colors.success} />
             <Text style={styles.noticeText}>
-              Card Rush Arena is free-to-play and family-friendly. It contains{"\n"}
-              no gambling, no betting, no real-money prizes, no crypto, no cash-out,{"\n"}
-              and virtual coins/items have no monetary value and cannot be withdrawn, sold, transferred, or exchanged.
+              Card Rush Arena is free-to-play and family-friendly.{"\n"}
+              No gambling, no betting, no real-money prizes, no crypto, no cash-out,
+              no purchases, no IAP. Virtual coins have no monetary value.
+              Coins/items cannot be withdrawn, sold, transferred, exchanged,
+              redeemed for money, crypto, prizes, or anything of real-world value.
             </Text>
           </View>
 
           <Section title="Virtual Currency">
-            Coins, tickets, and rank points are purely in-game virtual items. They have no monetary value. They cannot be redeemed for cash, traded between accounts, or sold to third parties.
+            Coins, tickets, and rank points are purely in-game virtual items. They have no monetary value. They cannot be withdrawn, sold, transferred, exchanged, or redeemed for money, crypto, prizes, or anything of real-world value.
+          </Section>
+          <Section title="No Purchases / No IAP">
+            This game contains NO in-app purchases. There is no way to buy coins, tickets, or any other item with real money. Coins are obtained ONLY by watching mock ads or claiming the daily reward.
           </Section>
           <Section title="No Real-Money Wagering">
-            This game does not involve any form of gambling, wagering, betting, or chance-based prize redemption. Match outcomes do not result in real-world rewards.
+            This game does not involve any form of gambling, betting, wagering, or chance-based prize redemption. Match outcomes do not result in real-world rewards.
           </Section>
           <Section title="Advertising">
             This MVP build uses a mocked ad service for development. No real third-party ads are served. In a production build, rewarded ads would be served by AdMob.

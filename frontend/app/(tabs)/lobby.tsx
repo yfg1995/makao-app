@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,12 +8,15 @@ import { useAuth } from '../../src/services/auth';
 import { Button, Pill, NoMoneyFooter } from '../../src/components/UI';
 import { theme } from '../../src/theme';
 import { api } from '../../src/services/api';
+import { OutOfCoinsModal } from '../../src/components/OutOfCoinsModal';
 
 export default function Lobby() {
   const router = useRouter();
   const { user, refresh } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [dailyAvail, setDailyAvail] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [showOOC, setShowOOC] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -23,6 +26,27 @@ export default function Lobby() {
   };
 
   useEffect(() => { onRefresh(); }, []);
+
+  const startMatch = async () => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const { data } = await api.post('/match/start', {});
+      await refresh();
+      router.push({ pathname: '/game', params: { matchId: data.match_id, paidWith: data.paid_with } });
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const code = e?.response?.data?.detail?.code;
+      if (status === 402 || code === 'INSUFFICIENT_BALANCE') {
+        setShowOOC(true);
+      } else {
+        const msg = e?.response?.data?.detail?.message || e?.response?.data?.detail || 'Could not start match';
+        alert(String(msg));
+      }
+    } finally {
+      setStarting(false);
+    }
+  };
 
   if (!user) return null;
 
@@ -50,16 +74,22 @@ export default function Lobby() {
             <View style={{flex:1}}>
               <Text style={styles.heroLabel}>Quick Match</Text>
               <Text style={styles.heroTitle}>1 vs 3 Bots</Text>
-              <Text style={styles.heroSub}>Shedding rules • ~5 min • Earn coins & RP</Text>
+              <Text style={styles.heroSub}>Entry: 1 🎫 or 100 🪙 • ~5 min</Text>
             </View>
-            <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/game')} style={styles.heroBtn}>
-              <Text style={styles.heroBtnText}>PLAY</Text>
-              <Ionicons name="play" color="#0E0B1F" size={20} />
+            <TouchableOpacity activeOpacity={0.9} onPress={startMatch} disabled={starting} style={[styles.heroBtn, starting && { opacity: 0.7 }]}>
+              {starting ? (
+                <ActivityIndicator color="#0E0B1F" />
+              ) : (
+                <>
+                  <Text style={styles.heroBtnText}>PLAY</Text>
+                  <Ionicons name="play" color="#0E0B1F" size={20} />
+                </>
+              )}
             </TouchableOpacity>
           </LinearGradient>
 
           <View style={styles.gridRow}>
-            <TouchableOpacity style={[styles.tile, { backgroundColor: '#3B2A78' }]} onPress={() => router.push('/daily')}>
+            <TouchableOpacity style={[styles.tile, { backgroundColor: '#3B2A78' }]} onPress={() => router.push('/(tabs)/earn')}>
               <Ionicons name="gift" color={theme.colors.gold} size={28} />
               <Text style={styles.tileTitle}>Daily Reward</Text>
               <Text style={styles.tileSub}>{dailyAvail ? 'Available now!' : 'Come back tomorrow'}</Text>
@@ -77,10 +107,10 @@ export default function Lobby() {
               <Text style={styles.tileTitle}>Leaderboard</Text>
               <Text style={styles.tileSub}>Climb leagues</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.tile, { backgroundColor: '#155E75' }]} onPress={() => router.push('/(tabs)/shop')}>
-              <Ionicons name="bag-handle" color={theme.colors.accent} size={28} />
-              <Text style={styles.tileTitle}>Shop</Text>
-              <Text style={styles.tileSub}>Coins & tickets</Text>
+            <TouchableOpacity style={[styles.tile, { backgroundColor: '#155E75' }]} onPress={() => router.push('/(tabs)/earn')}>
+              <Ionicons name="cash-outline" color={theme.colors.accent} size={28} />
+              <Text style={styles.tileTitle}>Earn</Text>
+              <Text style={styles.tileSub}>Free coins · ads</Text>
             </TouchableOpacity>
           </View>
 
@@ -92,6 +122,14 @@ export default function Lobby() {
           <NoMoneyFooter />
         </ScrollView>
       </SafeAreaView>
+
+      <OutOfCoinsModal
+        visible={showOOC}
+        onClose={() => setShowOOC(false)}
+        onGoToEarn={() => { setShowOOC(false); router.push('/(tabs)/earn'); }}
+        coins={user.coins}
+        tickets={user.tickets}
+      />
     </LinearGradient>
   );
 }

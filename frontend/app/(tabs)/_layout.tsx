@@ -25,7 +25,7 @@ export default function TabsLayout() {
             lobby: 'game-controller',
             missions: 'trophy',
             leaderboard: 'podium',
-            shop: 'bag-handle',
+            earn: 'cash-outline',
             profile: 'person',
           };
           return <Ionicons name={map[route.name] || 'help'} color={color} size={size} />;
@@ -35,7 +35,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="lobby" options={{ title: 'Play' }} />
       <Tabs.Screen name="missions" options={{ title: 'Missions' }} />
       <Tabs.Screen name="leaderboard" options={{ title: 'Ranks' }} />
-      <Tabs.Screen name="shop" options={{ title: 'Shop' }} />
+      <Tabs.Screen name="earn" options={{ title: 'Earn' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
     </Tabs>
   );
