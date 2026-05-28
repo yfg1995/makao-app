@@ -61,6 +61,13 @@ class PurchaseIn(BaseModel):
 class MissionClaimIn(BaseModel):
     mission_id: str
 
+# Economy constants — server is source of truth
+MATCH_ENTRY_COIN_COST = 100
+MATCH_ENTRY_TICKET_COST = 1
+AD_REWARD_PER_PAIR_COINS = 100   # every 2 ads watched
+AD_DAILY_MAX_WATCHES = 6          # max 6 ads/day => 300 coins/day max
+AD_WATCH_MIN_INTERVAL_SECONDS = 3 # anti-spam between watches
+
 # ---------- Helpers ----------
 def _now():
     return datetime.now(timezone.utc)
@@ -240,6 +247,150 @@ async def auth_logout(response: Response, user=Depends(get_current_user), author
         await db.sessions.delete_one({"token": token})
     response.delete_cookie("session_token", path="/")
     return {"ok": True}
+
+@api.post("/match/start")
+async def match_start(user=Depends(get_current_user)):
+    """Atomically deduct match entry cost from server-side balance.
+    Prefer 1 ticket; fallback to 100 coins. Reject if both insufficient.
+    This is the sole gate for starting a match — frontend MUST call this
+    before opening the game screen.
+    """
+    tickets = int(user.get("tickets", 0))
+    coins = int(user.get("coins", 0))
+
+    used = None
+    if tickets >= MATCH_ENTRY_TICKET_COST:
+        # Atomic conditional decrement
+        res = await db.users.update_one(
+            {"_id": user["_id"], "tickets": {"$gte": MATCH_ENTRY_TICKET_COST}},
+            {"$inc": {"tickets": -MATCH_ENTRY_TICKET_COST}},
+        )
+        if res.modified_count == 1:
+            used = "ticket"
+            user["tickets"] = tickets - MATCH_ENTRY_TICKET_COST
+
+    if used is None:
+        if coins >= MATCH_ENTRY_COIN_COST:
+            res = await db.users.update_one(
+                {"_id": user["_id"], "coins": {"$gte": MATCH_ENTRY_COIN_COST}},
+                {"$inc": {"coins": -MATCH_ENTRY_COIN_COST}},
+            )
+            if res.modified_count == 1:
+                used = "coins"
+                user["coins"] = coins - MATCH_ENTRY_COIN_COST
+
+    if used is None:
+        # 402 Payment Required — best HTTP semantic for "insufficient balance"
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "INSUFFICIENT_BALANCE",
+                "message": "Not enough tickets or coins to start a match.",
+                "required_tickets": MATCH_ENTRY_TICKET_COST,
+                "required_coins": MATCH_ENTRY_COIN_COST,
+                "current_tickets": tickets,
+                "current_coins": coins,
+            },
+        )
+
+    match_id = str(uuid.uuid4())
+    await db.matches_active.insert_one({
+        "_id": match_id,
+        "user_id": user["_id"],
+        "started_at": _now().isoformat(),
+        "entry_paid_with": used,
+        "entry_ticket_cost": MATCH_ENTRY_TICKET_COST if used == "ticket" else 0,
+        "entry_coin_cost": MATCH_ENTRY_COIN_COST if used == "coins" else 0,
+    })
+
+    return {
+        "match_id": match_id,
+        "paid_with": used,
+        "user": _user_to_public(user),
+    }
+
+
+def _today_key() -> str:
+    return _now().date().isoformat()
+
+
+@api.get("/ads/progress")
+async def ads_progress(user=Depends(get_current_user)):
+    """Return how many ads watched today + progress toward next 100-coin reward."""
+    today = _today_key()
+    doc = await db.ad_progress.find_one({"user_id": user["_id"], "day": today})
+    watched = int(doc["count"]) if doc else 0
+    daily_cap_reached = watched >= AD_DAILY_MAX_WATCHES
+    next_reward_in = max(0, 2 - (watched % 2)) if not daily_cap_reached else 0
+    return {
+        "watched_today": watched,
+        "daily_cap": AD_DAILY_MAX_WATCHES,
+        "pair_size": 2,
+        "reward_per_pair": AD_REWARD_PER_PAIR_COINS,
+        "next_reward_in": next_reward_in,
+        "daily_cap_reached": daily_cap_reached,
+        "coins_earned_today": (watched // 2) * AD_REWARD_PER_PAIR_COINS,
+        "max_coins_today": (AD_DAILY_MAX_WATCHES // 2) * AD_REWARD_PER_PAIR_COINS,
+    }
+
+
+@api.post("/ads/watch")
+async def ads_watch(user=Depends(get_current_user)):
+    """Record one ad watch. Every pair (2 ads) grants AD_REWARD_PER_PAIR_COINS.
+    Daily cap: AD_DAILY_MAX_WATCHES. All validation is server-side.
+    Anti-spam: ad watches must be at least AD_WATCH_MIN_INTERVAL_SECONDS apart.
+    """
+    today = _today_key()
+    now = _now()
+    doc = await db.ad_progress.find_one({"user_id": user["_id"], "day": today})
+
+    if doc:
+        # Anti-spam interval check
+        last_at = doc.get("last_at")
+        if isinstance(last_at, datetime):
+            if last_at.tzinfo is None:
+                last_at = last_at.replace(tzinfo=timezone.utc)
+            if (now - last_at).total_seconds() < AD_WATCH_MIN_INTERVAL_SECONDS:
+                raise HTTPException(status_code=429, detail="Watch too fast — wait a moment.")
+        watched = int(doc.get("count", 0))
+    else:
+        watched = 0
+
+    if watched >= AD_DAILY_MAX_WATCHES:
+        raise HTTPException(
+            status_code=429,
+            detail={"code": "DAILY_AD_CAP_REACHED",
+                    "message": f"Daily ad limit reached ({AD_DAILY_MAX_WATCHES}). Come back tomorrow."},
+        )
+
+    new_watched = watched + 1
+    granted_coins = 0
+    # Grant on every 2nd watch
+    if new_watched % 2 == 0:
+        granted_coins = AD_REWARD_PER_PAIR_COINS
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {"$inc": {"coins": granted_coins}},
+        )
+        user["coins"] = int(user.get("coins", 0)) + granted_coins
+
+    await db.ad_progress.update_one(
+        {"user_id": user["_id"], "day": today},
+        {"$set": {"count": new_watched, "last_at": now},
+         "$setOnInsert": {"user_id": user["_id"], "day": today}},
+        upsert=True,
+    )
+
+    next_reward_in = max(0, 2 - (new_watched % 2)) if new_watched < AD_DAILY_MAX_WATCHES else 0
+    return {
+        "watched_today": new_watched,
+        "daily_cap": AD_DAILY_MAX_WATCHES,
+        "granted_coins": granted_coins,
+        "next_reward_in": next_reward_in,
+        "daily_cap_reached": new_watched >= AD_DAILY_MAX_WATCHES,
+        "user": _user_to_public(user),
+    }
+
 
 @api.post("/match/result")
 async def match_result(payload: MatchResultIn, user=Depends(get_current_user)):
