@@ -478,7 +478,7 @@ async def daily_claim(user=Depends(get_current_user)):
     else:
         streak_reset = False
     streak = 0 if streak_reset else int(user.get("daily_streak", 0))
-    rewards = [50, 75, 100, 150, 200, 300, 500]
+    rewards = [100, 125, 150, 200, 300, 500, 750]
     reward = rewards[min(streak, len(rewards)-1)]
     new_streak = (streak + 1) % (len(rewards) + 1) or 1
     new_coins = int(user.get("coins", 0)) + reward
