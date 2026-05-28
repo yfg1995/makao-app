@@ -226,26 +226,142 @@ metadata:
   test_sequence: 0
   run_ui: true
 
+backend:
+  - task: "Match start economy gate POST /api/match/start"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            Server is now the SOLE source of truth for match entry cost.
+            Atomic conditional decrement: prefer 1 ticket, fallback to 100 coins.
+            If both insufficient -> HTTP 402 with detail.code = INSUFFICIENT_BALANCE and
+            current_tickets/current_coins. On success returns {match_id, paid_with, user}.
+            Inserts row in matches_active. Needs validation across 3 cases:
+              (a) user has tickets -> tickets -1, paid_with='ticket'
+              (b) user has 0 tickets & >=100 coins -> coins -100, paid_with='coins'
+              (c) user has 0 tickets & <100 coins -> 402 INSUFFICIENT_BALANCE.
+
+  - task: "Ads progress + watch flow GET /api/ads/progress, POST /api/ads/watch"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            /ads/progress returns watched_today, daily_cap (6), pair_size (2),
+            reward_per_pair (100), next_reward_in, daily_cap_reached, coins_earned_today,
+            max_coins_today.
+            /ads/watch increments count, anti-spam interval 3s (HTTP 429 if too fast),
+            DAILY_AD_CAP_REACHED at 6 watches/day. Grants 100 coins every 2nd watch.
+            Validate: 1st watch -> granted_coins=0; 2nd watch (after >=3s) -> granted_coins=100
+            and user.coins increased by 100. After 6 watches in a day -> further calls return 429.
+
+frontend:
+  - task: "Lobby PLAY button wired to /api/match/start + OutOfCoinsModal"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/lobby.tsx, /app/frontend/src/components/OutOfCoinsModal.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            PLAY now calls POST /api/match/start. On success routes to /game with matchId and paid_with.
+            On 402 / detail.code=INSUFFICIENT_BALANCE opens <OutOfCoinsModal/> with a "Go to Earn" CTA
+            that navigates to /(tabs)/earn. Lobby balance pills must reflect refreshed user after spend.
+
+  - task: "Earn tab — replaces Shop, AdSimulatorModal + Daily Reward claim"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/earn.tsx, /app/frontend/src/components/AdSimulatorModal.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            New Earn screen (no shop, no IAP). "Watch Ad" opens 5s countdown AdSimulatorModal,
+            on complete posts /ads/watch, refreshes balance + progress. After 2nd ad => Alert "+100 coins".
+            Daily Reward card hits /daily/status and /daily/claim. Legal text shown at the bottom.
+            Validate that after the 2nd ad, balance pill increases by 100 and the alert appears.
+
+  - task: "Legal page strict NO-IAP / NO-Gambling text"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/legal.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Manually verified — explicit NO IAP, no real money, no crypto, no cashout, no transfer."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 1
+  run_ui: true
+
 test_plan:
   current_focus:
-    - "App boots / Splash + routing"
-    - "Guest auth + Login screen + Emergent Google Auth button"
-    - "Lobby → Game → Results flow vs 3 bots"
-    - "Action cards: Skip, Reverse, Draw Two, Wild, Shield"
-    - "Currency display + Shop purchase + Rewarded Ad mock + Daily/Missions/Leaderboard"
-    - "Auth (Guest + Emergent Google) endpoints"
-    - "Match / Game endpoints (start, play, finish vs bots)"
-    - "Shop, Daily Reward, Missions, Leaderboard endpoints"
+    - "Match start economy gate POST /api/match/start"
+    - "Ads progress + watch flow GET /api/ads/progress, POST /api/ads/watch"
+    - "Lobby PLAY button wired to /api/match/start + OutOfCoinsModal"
+    - "Earn tab — replaces Shop, AdSimulatorModal + Daily Reward claim"
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
       message: |
-        First full E2E test invocation. App compiles & renders (screenshots verified for Login,
-        Lobby, Game, Shop). Please test backend first, then frontend. For Google Auth, only verify
-        the button + auth-callback route exist and don't crash; the full Google redirect cannot be
-        automated in the sandbox — do NOT mark this as failing if only the redirect step is unverified.
-        Guest path must work fully. Validate the full game loop vs 3 bots and all action cards.
-        Legal disclaimers were already manually verified — please just confirm they render on screen.
+        P0 ECONOMY FLOW TEST.
+        Please test the following NEW flow end-to-end. This is the priority — older tasks above
+        ("Lobby->Game vs 3 bots", "Action cards", etc.) are out-of-scope for this run.
+
+        Auth: use guest auth — POST /api/auth/guest returns a Bearer session_token. Use it as
+        Authorization: Bearer <token> for all subsequent calls. No test_credentials needed
+        (guest is anonymous, fresh user each call).
+
+        BACKEND TESTS (priority order):
+        1. POST /api/auth/guest -> 200, returns user (coins=1000, tickets=5) and session_token.
+        2. POST /api/match/start (with the new guest)
+           -> 200, paid_with='ticket', user.tickets=4, user.coins=1000.
+        3. Drain tickets: call /api/match/start 5 more times until tickets=0.
+           Each call should succeed, paid_with='ticket'.
+        4. Next /api/match/start with tickets=0, coins=1000
+           -> 200, paid_with='coins', user.coins=900.
+        5. Force INSUFFICIENT_BALANCE: drain coins via repeated /match/start (10 times more to get coins<100).
+           Final call with tickets=0 & coins<100 -> HTTP 402 with detail.code='INSUFFICIENT_BALANCE'.
+        6. GET /api/ads/progress -> 200, watched_today=0, daily_cap=6, pair_size=2, reward_per_pair=100.
+        7. POST /api/ads/watch (1st) -> granted_coins=0, watched_today=1.
+        8. Wait 3.5s (anti-spam interval is 3s) then POST /api/ads/watch (2nd)
+           -> granted_coins=100, watched_today=2, user.coins increased by 100.
+        9. POST /api/ads/watch immediately after the 2nd (no wait) -> HTTP 429 (anti-spam).
+        10. GET /api/daily/status -> 200, returns can_claim/today_reward/streak/next_in_seconds.
+        11. POST /api/daily/claim (only if can_claim=true) -> 200, reward>0, user.coins increased.
+
+        FRONTEND TESTS (after backend passes):
+        A. App boots at / (Splash) -> auto-redirect to /login or /(tabs)/lobby if session exists.
+        B. Tap "Play as Guest" on /login -> lands on Lobby with coins=1000, tickets=5.
+        C. Lobby: PLAY button -> deducts 1 ticket -> navigates to /game. Press hardware back / Leave to return.
+        D. Go to Earn tab. Tap "Watch Ad" -> AdSimulatorModal appears with 5s countdown -> completes -> back to Earn. Coins unchanged after 1st ad.
+        E. Tap "Watch Ad" again (wait at least 4s) -> after 5s countdown -> Alert "+100 coins" -> balance pill updates to coins+100.
+        F. Spend down: switch to Lobby, press PLAY repeatedly until OutOfCoinsModal pops (you may need to keep playing to drain). Modal must show coin/ticket balance and "Go to Earn" CTA that navigates to /(tabs)/earn.
+
+        KNOWN MOCK: AdMob is fully mocked (5s countdown).
+        DO NOT TEST: Lobby->Game->Results full match (out of scope this run), Action cards, Leaderboard, Missions claim cooldowns. Those will be covered separately.
