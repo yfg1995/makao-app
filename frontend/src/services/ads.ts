@@ -1,16 +1,39 @@
-// Mock AdMob service. Simulates a rewarded ad with a 1.2s delay.
-// IMPORTANT: This is a placeholder. No real ads served.
+// Mock AdMob service. Calls server-side /ads/watch (paired, capped) endpoint.
+// IMPORTANT: This is a placeholder. NO real ads are served. The 5-second
+// countdown timer lives in <AdSimulatorModal/> on the UI side.
 import { api } from './api';
 
+export interface AdProgress {
+  watched_today: number;
+  daily_cap: number;
+  pair_size: number;
+  reward_per_pair: number;
+  next_reward_in: number;
+  daily_cap_reached: boolean;
+  coins_earned_today: number;
+  max_coins_today: number;
+}
+
 export const adsService = {
-  isMock: true,
-  async showRewardedAd(): Promise<{ ok: boolean; reward_coins?: number }> {
-    await new Promise((r) => setTimeout(r, 1200));
+  isMock: true as const,
+
+  async getProgress(): Promise<AdProgress | null> {
     try {
-      const { data } = await api.post('/ads/reward', {});
-      return { ok: true, reward_coins: data.reward_coins };
-    } catch (e) {
-      return { ok: false };
+      const { data } = await api.get('/ads/progress');
+      return data;
+    } catch {
+      return null;
     }
-  }
+  },
+
+  /** Record one completed ad watch. Server enforces pacing + daily cap. */
+  async recordWatch(): Promise<{ ok: boolean; granted_coins?: number; watched_today?: number; daily_cap_reached?: boolean; message?: string }> {
+    try {
+      const { data } = await api.post('/ads/watch', {});
+      return { ok: true, ...data };
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      return { ok: false, message: typeof detail === 'string' ? detail : detail?.message };
+    }
+  },
 };

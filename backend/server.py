@@ -532,44 +532,14 @@ async def missions_claim(payload: MissionClaimIn, user=Depends(get_current_user)
     user["coins"] = new_coins
     return {"reward": mission["reward_coins"], "user": _user_to_public(user)}
 
-SHOP_ITEMS = [
-    {"id": "coins_small", "title": "Pouch of Coins", "coins": 500, "cost_tickets": 1},
-    {"id": "coins_mid", "title": "Chest of Coins", "coins": 1500, "cost_tickets": 3},
-    {"id": "coins_big", "title": "Vault of Coins", "coins": 4000, "cost_tickets": 5},
-    {"id": "tickets_pack", "title": "Ticket Bundle", "tickets": 3, "cost_coins": 1500},
-]
-
-@api.get("/shop/items")
-async def shop_items(user=Depends(get_current_user)):
-    return {"items": SHOP_ITEMS}
-
-@api.post("/shop/purchase")
-async def shop_purchase(payload: PurchaseIn, user=Depends(get_current_user)):
-    item = next((i for i in SHOP_ITEMS if i["id"] == payload.item_id), None)
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
-    coins = int(user.get("coins",0)); tickets = int(user.get("tickets",0))
-    if "cost_tickets" in item:
-        if tickets < item["cost_tickets"]:
-            raise HTTPException(status_code=400, detail="Not enough tickets")
-        tickets -= item["cost_tickets"]
-        coins += item.get("coins",0)
-    if "cost_coins" in item:
-        if coins < item["cost_coins"]:
-            raise HTTPException(status_code=400, detail="Not enough coins")
-        coins -= item["cost_coins"]
-        tickets += item.get("tickets",0)
-    await db.users.update_one({"_id": user["_id"]}, {"$set": {"coins": coins, "tickets": tickets}})
-    user["coins"] = coins; user["tickets"] = tickets
-    return {"user": _user_to_public(user)}
-
-@api.post("/ads/reward")
-async def ads_reward(user=Depends(get_current_user)):
-    reward = 50
-    new_coins = int(user.get("coins",0)) + reward
-    await db.users.update_one({"_id": user["_id"]}, {"$set": {"coins": new_coins}})
-    user["coins"] = new_coins
-    return {"reward_coins": reward, "user": _user_to_public(user)}
+# NOTE: All In-App-Purchase / coin-bundle / ticket-pack endpoints have been
+# permanently removed per product policy. There is NO way to buy coins or
+# tickets with real money or via virtual exchange. Coins are only earned via:
+#   • gameplay rewards (/match/result)
+#   • daily reward (/daily/claim)
+#   • watching mock ads in pairs (/ads/watch — 2 ads = 100 coins)
+# The legacy /ads/reward (instant +50) endpoint has also been removed in favor
+# of the paired /ads/watch system with strict server-side daily cap.
 
 @api.patch("/profile")
 async def update_profile(payload: Dict[str, Any], user=Depends(get_current_user)):
