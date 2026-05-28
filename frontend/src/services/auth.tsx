@@ -5,7 +5,7 @@ import {
   signOut as firebaseSignOut,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { firebaseAuth } from '../../lib/firebase';
+import { getFirebaseAuth } from '../../lib/firebase';
 import { storage } from '../utils/storage';
 import { api } from './api';
 
@@ -78,18 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const registerWithEmail = async (email: string, password: string, username?: string) => {
-    const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+    const credential = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
     await completeFirebaseSignIn(credential.user, username);
   };
 
   const loginWithEmail = async (email: string, password: string) => {
-    const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+    const credential = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
     await completeFirebaseSignIn(credential.user);
   };
 
   const signOut = async () => {
     try { await api.post('/auth/logout', {}); } catch {}
-    try { await firebaseSignOut(firebaseAuth); } catch {}
+    try { await firebaseSignOut(getFirebaseAuth()); } catch {}
     await storage.clearToken();
     setUser(null);
   };

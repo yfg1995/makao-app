@@ -13,7 +13,7 @@ export default function Login() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register'>('register');
   const [authBusy, setAuthBusy] = useState(false);
   const [guestBusy, setGuestBusy] = useState(false);
 
@@ -23,9 +23,14 @@ export default function Login() {
 
   const authMessage = (e: any) => {
     const code = e?.code || '';
+    if (e?.message?.includes('Firebase API key is missing')) return e.message;
+    if (code.includes('api-key-not-valid')) return 'Firebase API key is invalid. Check EXPO_PUBLIC_FIREBASE_API_KEY in Vercel, then redeploy.';
+    if (code.includes('operation-not-allowed')) return 'Email/Password sign-in is disabled. Enable it in Firebase Authentication > Sign-in method.';
+    if (code.includes('unauthorized-domain')) return 'This Vercel domain is not authorized in Firebase Authentication settings.';
     if (code.includes('email-already-in-use')) return 'That email is already registered.';
     if (code.includes('invalid-email')) return 'Enter a valid email address.';
-    if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'Email or password is incorrect.';
+    if (code.includes('user-not-found')) return 'No account exists for this email. Create an account first.';
+    if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'Email or password is incorrect, or this account does not exist yet.';
     if (code.includes('weak-password')) return 'Password must be at least 6 characters.';
     if (code.includes('network-request-failed')) return 'Network error. Try again.';
     return e?.response?.data?.detail || e?.message || 'Could not complete authentication.';
