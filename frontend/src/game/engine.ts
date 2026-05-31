@@ -1,14 +1,15 @@
-// Mau Mau-inspired shedding engine for Card Rush Arena.
-// Standard suits keep the table familiar while the economy and match gate stay server-side.
+// Classic Mau Mau style shedding engine: regular playing cards only.
+// No jokers and no custom action deck.
 
 export type Suit = 'Hearts' | 'Diamonds' | 'Clubs' | 'Spades';
-export type Action = 'Skip' | 'Reverse' | 'DrawTwo' | 'Wild' | 'Shield' | null;
+export type Rank = '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K' | 'A';
+export type Action = 'DrawTwo' | 'ChooseSuit' | null;
 export type Gender = 'male' | 'female';
 
 export interface Card {
   id: string;
-  suit: Suit | 'Wild';
-  value: number | null;
+  suit: Suit;
+  value: Rank;
   action: Action;
 }
 
@@ -26,12 +27,10 @@ export interface Player {
 export interface GameState {
   players: Player[];
   turn: number;
-  direction: 1 | -1;
   drawPile: Card[];
   discardPile: Card[];
   currentSuit: Suit;
   pendingDraw: number;
-  skipNext: boolean;
   winner: number | null;
   log: string[];
   startedAt: number;
@@ -39,7 +38,8 @@ export interface GameState {
 }
 
 const SUITS: Suit[] = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
-const ACTION_KINDS: Exclude<Action, null>[] = ['Skip', 'Reverse', 'DrawTwo', 'Shield'];
+const RANKS: Rank[] = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+const STARTING_HAND_SIZE = 5;
 
 const OPPONENT_PROFILES: Pick<Player, 'name' | 'gender' | 'avatarName' | 'avatarColor'>[] = [
   { name: 'Lena Storm', gender: 'female', avatarName: 'Lena', avatarColor: '#EC4899' },
@@ -60,19 +60,22 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function actionForRank(value: Rank): Action {
+  if (value === '7') return 'DrawTwo';
+  if (value === 'J') return 'ChooseSuit';
+  return null;
+}
+
+function isOpeningCard(card: Card) {
+  return card.value !== '7' && card.value !== 'J';
+}
+
 export function buildDeck(): Card[] {
   const deck: Card[] = [];
   for (const suit of SUITS) {
-    for (let value = 1; value <= 10; value += 1) {
-      deck.push({ id: uid(), suit, value, action: null });
+    for (const value of RANKS) {
+      deck.push({ id: uid(), suit, value, action: actionForRank(value) });
     }
-    for (const action of ACTION_KINDS) {
-      deck.push({ id: uid(), suit, value: null, action });
-      if (action !== 'Shield') deck.push({ id: uid(), suit, value: null, action });
-    }
-  }
-  for (let i = 0; i < 4; i += 1) {
-    deck.push({ id: uid(), suit: 'Wild', value: null, action: 'Wild' });
   }
   return shuffle(deck);
 }
@@ -109,12 +112,12 @@ export function newGame(humanName = 'You', humanGender?: Gender | null): GameSta
     })),
   ];
 
-  for (let round = 0; round < 7; round += 1) {
+  for (let round = 0; round < STARTING_HAND_SIZE; round += 1) {
     for (const player of players) player.hand.push(deck.pop()!);
   }
 
   let first = deck.pop()!;
-  while (first.action !== null || first.suit === 'Wild') {
+  while (!isOpeningCard(first)) {
     deck.unshift(first);
     first = deck.pop()!;
   }
@@ -122,14 +125,12 @@ export function newGame(humanName = 'You', humanGender?: Gender | null): GameSta
   return {
     players,
     turn: 0,
-    direction: 1,
     drawPile: deck,
     discardPile: [first],
-    currentSuit: first.suit as Suit,
+    currentSuit: first.suit,
     pendingDraw: 0,
-    skipNext: false,
     winner: null,
-    log: [`Top card: ${first.suit} ${first.value ?? first.action}`],
+    log: [`Top card: ${formatCard(first)}`],
     startedAt: Date.now(),
     actionsPlayed: 0,
   };
@@ -140,13 +141,10 @@ export function topCard(state: GameState): Card {
 }
 
 export function canPlay(card: Card, top: Card, currentSuit: Suit, pendingDraw: number): boolean {
-  if (pendingDraw > 0) {
-    return card.action === 'DrawTwo' || card.action === 'Shield' || card.action === 'Wild';
-  }
-  if (card.action === 'Wild' || card.suit === 'Wild') return true;
+  if (pendingDraw > 0) return card.value === '7';
+  if (card.value === 'J') return true;
   if (card.suit === currentSuit) return true;
-  if (card.action && top.action && card.action === top.action) return true;
-  if (card.value !== null && top.value !== null && card.value === top.value) return true;
+  if (card.value === top.value) return true;
   return false;
 }
 
@@ -154,12 +152,8 @@ export function legalCardsFor(player: Player, state: GameState): Card[] {
   return player.hand.filter((card) => canPlay(card, topCard(state), state.currentSuit, state.pendingDraw));
 }
 
-function nextIndex(state: GameState, from: number, steps = 1): number {
-  let idx = from;
-  for (let i = 0; i < steps; i += 1) {
-    idx = (idx + state.direction + state.players.length) % state.players.length;
-  }
-  return idx;
+function nextIndex(state: GameState, from: number): number {
+  return (from + 1) % state.players.length;
 }
 
 export function drawN(state: GameState, playerIdx: number, n: number): GameState {
@@ -212,14 +206,14 @@ export function playCard(
         : { ...current }
     )),
     discardPile: [...state.discardPile, card],
-    log: [...state.log, `${player.name} played ${card.suit === 'Wild' ? 'Wild' : card.suit} ${card.value ?? card.action}`],
+    log: [...state.log, `${player.name} played ${formatCard(card)}`],
   };
 
-  if (card.action === 'Wild') {
+  if (card.value === 'J') {
     nextState.currentSuit = opts.chosenSuit || pickBestSuitForOpponent(nextState, playerIdx);
     nextState.log.push(`${player.name} chose ${nextState.currentSuit}`);
   } else {
-    nextState.currentSuit = card.suit as Suit;
+    nextState.currentSuit = card.suit;
   }
 
   if (playerIdx === 0 && card.action) nextState.actionsPlayed += 1;
@@ -230,20 +224,10 @@ export function playCard(
     return { state: nextState, ok: true };
   }
 
-  if (card.action === 'DrawTwo') {
+  if (card.value === '7') {
     nextState.pendingDraw = (nextState.pendingDraw || 0) + 2;
-    nextState.turn = nextIndex(nextState, playerIdx, 1);
-  } else if (card.action === 'Skip') {
-    nextState.turn = nextIndex(nextState, playerIdx, 2);
-  } else if (card.action === 'Reverse') {
-    nextState.direction = (nextState.direction === 1 ? -1 : 1) as 1 | -1;
-    nextState.turn = nextIndex(nextState, playerIdx, nextState.players.length === 2 ? 2 : 1);
-  } else if (card.action === 'Shield') {
-    nextState.pendingDraw = 0;
-    nextState.turn = nextIndex(nextState, playerIdx, 1);
-  } else {
-    nextState.turn = nextIndex(nextState, playerIdx, 1);
   }
+  nextState.turn = nextIndex(nextState, playerIdx);
 
   return { state: nextState, ok: true };
 }
@@ -254,15 +238,13 @@ export function drawAndPass(state: GameState, playerIdx: number): GameState {
   const nextState = drawN(state, playerIdx, toDraw);
   nextState.pendingDraw = 0;
   nextState.log = [...nextState.log, `${nextState.players[playerIdx].name} drew ${toDraw}`];
-  nextState.turn = nextIndex(nextState, playerIdx, 1);
+  nextState.turn = nextIndex(nextState, playerIdx);
   return nextState;
 }
 
 function countBySuit(hand: Card[]) {
   const counts: Record<Suit, number> = { Hearts: 0, Diamonds: 0, Clubs: 0, Spades: 0 };
-  for (const card of hand) {
-    if (card.suit !== 'Wild') counts[card.suit] += 1;
-  }
+  for (const card of hand) counts[card.suit] += 1;
   return counts;
 }
 
@@ -279,77 +261,73 @@ export function pickBestSuitForOpponent(state: GameState, playerIdx: number): Su
   return best;
 }
 
+function rankScore(value: Rank) {
+  return RANKS.indexOf(value) + 1;
+}
+
 export function opponentTurn(state: GameState, playerIdx: number): GameState {
   if (state.winner !== null || state.turn !== playerIdx) return state;
   const player = state.players[playerIdx];
   const legal = legalCardsFor(player, state);
   if (legal.length === 0) return drawAndPass(state, playerIdx);
 
-  const conserveWild = player.hand.length > 3;
+  const suitCounts = countBySuit(player.hand);
   const scored = legal
     .map((card) => {
-      let score = Math.random() * 1.4;
-      if (state.pendingDraw > 0) {
-        if (card.action === 'Shield') score += 9;
-        if (card.action === 'DrawTwo') score += 8;
-        if (card.action === 'Wild') score += 5;
-      } else if (card.action === 'DrawTwo') score += 7;
-      else if (card.action === 'Skip') score += 5;
-      else if (card.action === 'Reverse') score += 4;
-      else if (card.action === 'Wild') score += conserveWild ? 1.5 : 8;
-      else if (card.action === 'Shield') score += 2;
-      else score += (card.value || 0) / 10;
-      if (card.suit !== 'Wild') score += countBySuit(player.hand)[card.suit] * 0.15;
+      let score = Math.random() * 1.3;
+      if (state.pendingDraw > 0 && card.value === '7') score += 8;
+      else if (card.value === '7') score += 5.5;
+      else if (card.value === 'J') score += player.hand.length <= 2 ? 7 : 3;
+      else score += rankScore(card.value) * 0.35;
+      score += suitCounts[card.suit] * 0.2;
       return { card, score };
     })
     .sort((a, b) => b.score - a.score);
 
-  const choice = scored[Math.random() < 0.18 && scored[1] ? 1 : 0].card;
+  const choice = scored[Math.random() < 0.16 && scored[1] ? 1 : 0].card;
   const opts: PlayCardOptions = {};
-  if (choice.action === 'Wild') opts.chosenSuit = pickBestSuitForOpponent(state, playerIdx);
+  if (choice.value === 'J') opts.chosenSuit = pickBestSuitForOpponent(state, playerIdx);
   const result = playCard(state, playerIdx, choice.id, opts);
   return result.ok ? result.state : drawAndPass(state, playerIdx);
 }
 
-export function suitColor(suit: Suit | 'Wild'): string {
+export function suitColor(suit: Suit): string {
   switch (suit) {
-    case 'Hearts': return '#DC2626';
-    case 'Diamonds': return '#E11D48';
+    case 'Hearts': return '#B91C1C';
+    case 'Diamonds': return '#BE123C';
     case 'Clubs': return '#111827';
     case 'Spades': return '#020617';
-    default: return '#7C3AED';
   }
 }
 
-export function suitAccentColor(suit: Suit | 'Wild'): string {
+export function suitAccentColor(suit: Suit): string {
   switch (suit) {
-    case 'Hearts': return '#F87171';
-    case 'Diamonds': return '#FB7185';
-    case 'Clubs': return '#94A3B8';
-    case 'Spades': return '#CBD5E1';
-    default: return '#A78BFA';
+    case 'Hearts': return '#EF4444';
+    case 'Diamonds': return '#F43F5E';
+    case 'Clubs': return '#64748B';
+    case 'Spades': return '#94A3B8';
   }
 }
 
-export function suitGlyph(suit: Suit | 'Wild'): string {
+export function suitGlyph(suit: Suit): string {
   switch (suit) {
     case 'Hearts': return '\u2665';
     case 'Diamonds': return '\u2666';
     case 'Clubs': return '\u2663';
     case 'Spades': return '\u2660';
-    default: return '\u2605';
   }
 }
 
 export function actionLabel(action: Action): string {
   switch (action) {
-    case 'Skip': return 'Skip';
-    case 'Reverse': return 'Reverse';
     case 'DrawTwo': return '+2';
-    case 'Wild': return 'Wild';
-    case 'Shield': return 'Block';
+    case 'ChooseSuit': return 'Suit';
     default: return '';
   }
+}
+
+export function formatCard(card: Card): string {
+  return `${card.value}${suitGlyph(card.suit)}`;
 }
 
 export function playerInitials(name: string): string {

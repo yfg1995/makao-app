@@ -47,7 +47,7 @@ export default function GameScreen() {
   const { width, height } = useWindowDimensions();
   const [state, setState] = useState<GameState>(() => newGame(user?.username || 'You', user?.gender as Gender | undefined));
   const [showSuitPicker, setShowSuitPicker] = useState(false);
-  const [pendingWildId, setPendingWildId] = useState<string | null>(null);
+  const [pendingSuitChoiceId, setPendingSuitChoiceId] = useState<string | null>(null);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [endHandled, setEndHandled] = useState(false);
   const [opponentNote, setOpponentNote] = useState(TURN_NOTES[0]);
@@ -136,8 +136,8 @@ export default function GameScreen() {
     if (state.turn !== 0 || state.winner !== null) return;
     const card = human.hand.find((candidate) => candidate.id === cardId);
     if (!card || !legalIds.has(cardId)) return;
-    if (card.action === 'Wild') {
-      setPendingWildId(cardId);
+    if (card.action === 'ChooseSuit') {
+      setPendingSuitChoiceId(cardId);
       setShowSuitPicker(true);
       return;
     }
@@ -146,10 +146,10 @@ export default function GameScreen() {
   };
 
   const chooseSuit = (suit: Suit) => {
-    if (!pendingWildId) return;
-    const result = playCard(state, 0, pendingWildId, { chosenSuit: suit });
+    if (!pendingSuitChoiceId) return;
+    const result = playCard(state, 0, pendingSuitChoiceId, { chosenSuit: suit });
     setShowSuitPicker(false);
-    setPendingWildId(null);
+    setPendingSuitChoiceId(null);
     if (result.ok) setState(result.state);
   };
 
@@ -177,7 +177,7 @@ export default function GameScreen() {
 
   if (!matchId) {
     return (
-      <LinearGradient colors={[theme.colors.bg, theme.colors.bgAlt]} style={{ flex: 1 }}>
+      <LinearGradient colors={['#053827', '#0B5A3C', '#07261D']} style={{ flex: 1 }}>
         <SafeAreaView style={styles.centered}>
           <Text style={styles.status}>Opening match...</Text>
         </SafeAreaView>
@@ -190,7 +190,7 @@ export default function GameScreen() {
   const activeName = state.players[state.turn]?.name || '';
 
   return (
-    <LinearGradient colors={[theme.colors.bg, theme.colors.bgAlt]} style={{ flex: 1 }}>
+    <LinearGradient colors={['#053827', '#0B5A3C', '#07261D']} style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => setShowQuitConfirm(true)} style={styles.iconBtn}>
@@ -203,7 +203,7 @@ export default function GameScreen() {
             </Text>
           </View>
           <View style={styles.iconBtn}>
-            <Ionicons name={state.direction === 1 ? 'arrow-forward' : 'arrow-back'} color={theme.colors.text} size={22} />
+            <Text style={styles.tableBadgeText}>MM</Text>
           </View>
         </View>
 
@@ -240,7 +240,7 @@ export default function GameScreen() {
           <PressScale onPress={onDraw} disabled={!myTurn} style={{ opacity: myTurn ? 1 : 0.6 }}>
             <View style={styles.drawPileWrap}>
               <View style={[styles.cardShadow, { width: tableCardWidth, height: tableCardWidth * 1.45 }]} />
-              <CardView card={{ id: 'back', suit: 'Hearts', value: null, action: null }} hidden width={tableCardWidth} />
+              <CardView card={{ id: 'back', suit: 'Hearts', value: 'A', action: null }} hidden width={tableCardWidth} />
               <Text style={styles.pileLabel}>Draw ({state.drawPile.length})</Text>
               {mustDrawStack && myTurn ? (
                 <View style={styles.pendingBadge}>
@@ -263,7 +263,7 @@ export default function GameScreen() {
             {state.winner !== null
               ? `${state.players[state.winner].name} wins!`
               : myTurn
-                ? (mustDrawStack ? `Block +${state.pendingDraw} or draw` : 'Your turn - play a match or draw')
+                ? (mustDrawStack ? `Play a 7 or draw +${state.pendingDraw}` : 'Your turn - match suit/rank or draw')
                 : `${activeName} is ${opponentNote}`}
           </Text>
         </View>
@@ -300,10 +300,10 @@ export default function GameScreen() {
           </View>
         </View>
 
-        <Modal transparent visible={showSuitPicker} animationType="fade" onRequestClose={() => { setShowSuitPicker(false); setPendingWildId(null); }}>
+        <Modal transparent visible={showSuitPicker} animationType="fade" onRequestClose={() => { setShowSuitPicker(false); setPendingSuitChoiceId(null); }}>
           <View style={styles.modalRoot}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Choose a suit</Text>
+              <Text style={styles.modalTitle}>Choose suit for Jack</Text>
               <View style={styles.suitGrid}>
                 {SUIT_LIST.map((suit) => (
                   <PressScale key={suit} style={[styles.suitBtn, { borderColor: suitAccentColor(suit) }]} onPress={() => chooseSuit(suit)}>
@@ -312,7 +312,7 @@ export default function GameScreen() {
                   </PressScale>
                 ))}
               </View>
-              <Button title="Cancel" variant="ghost" small onPress={() => { setShowSuitPicker(false); setPendingWildId(null); }} />
+              <Button title="Cancel" variant="ghost" small onPress={() => { setShowSuitPicker(false); setPendingSuitChoiceId(null); }} />
             </View>
           </View>
         </Modal>
@@ -337,12 +337,13 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 8 },
-  iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
-  suitIndicator: { alignItems: 'center', backgroundColor: theme.colors.surface, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
-  suitIndicatorLabel: { color: theme.colors.textMuted, fontSize: 9, letterSpacing: 1.2, fontWeight: '700' },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(5,31,24,0.82)', borderWidth: 1, borderColor: 'rgba(236,255,244,0.22)' },
+  tableBadgeText: { color: '#F7F3E8', fontSize: 14, fontWeight: '900' },
+  suitIndicator: { alignItems: 'center', backgroundColor: 'rgba(5,31,24,0.82)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
+  suitIndicatorLabel: { color: '#B7D8C9', fontSize: 9, letterSpacing: 1.2, fontWeight: '700' },
   suitGlyph: { fontSize: 16, fontWeight: '900' },
   opponentsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingHorizontal: 8, marginTop: 4 },
-  opponentSlot: { backgroundColor: theme.colors.surface, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', minHeight: 120 },
+  opponentSlot: { backgroundColor: 'rgba(5,31,24,0.74)', paddingHorizontal: 8, paddingVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(236,255,244,0.16)', alignItems: 'center', minHeight: 120 },
   opponentSlotActive: { borderColor: theme.colors.accent, shadowColor: theme.colors.accent, shadowOpacity: 0.45, shadowRadius: 8, elevation: 4 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
   avatarText: { color: '#fff', fontSize: 12, fontWeight: '900' },
@@ -353,15 +354,15 @@ const styles = StyleSheet.create({
   tableCenter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 18, marginBottom: 4 },
   tableCenterCompact: { marginTop: 12 },
   drawPileWrap: { alignItems: 'center', position: 'relative' },
-  cardShadow: { position: 'absolute', top: 5, left: 5, borderRadius: 12, backgroundColor: theme.colors.primaryDark, opacity: 0.45 },
+  cardShadow: { position: 'absolute', top: 5, left: 5, borderRadius: 8, backgroundColor: '#03150F', opacity: 0.45 },
   discardWrap: { alignItems: 'center' },
-  pileLabel: { color: theme.colors.textMuted, fontSize: 11, marginTop: 6 },
+  pileLabel: { color: '#CDEBDD', fontSize: 11, marginTop: 6 },
   pendingBadge: { position: 'absolute', top: -6, right: -10, backgroundColor: theme.colors.danger, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   pendingText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   statusRow: { alignItems: 'center', marginTop: 8, marginBottom: 4, paddingHorizontal: 18 },
-  status: { color: theme.colors.accent, fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  handArea: { marginTop: 'auto', backgroundColor: 'rgba(30,23,64,0.66)', paddingTop: 8, paddingBottom: 8, borderTopWidth: 1, borderTopColor: theme.colors.border },
-  handLabel: { color: theme.colors.textMuted, fontSize: 11, letterSpacing: 1.2, fontWeight: '700', paddingHorizontal: 16 },
+  status: { color: '#FDE68A', fontSize: 14, fontWeight: '800', textAlign: 'center' },
+  handArea: { marginTop: 'auto', backgroundColor: 'rgba(3,21,15,0.78)', paddingTop: 8, paddingBottom: 8, borderTopWidth: 1, borderTopColor: 'rgba(236,255,244,0.16)' },
+  handLabel: { color: '#B7D8C9', fontSize: 11, letterSpacing: 1.2, fontWeight: '700', paddingHorizontal: 16 },
   handScroll: { gap: 8, paddingVertical: 8, alignItems: 'center' },
   handActions: { flexDirection: 'row', justifyContent: 'center', marginTop: 2 },
   modalRoot: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },

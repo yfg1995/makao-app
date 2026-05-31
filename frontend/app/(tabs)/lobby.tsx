@@ -127,7 +127,7 @@ export default function Lobby() {
 
           <View style={styles.rulesCard}>
             <Text style={styles.rulesTitle}>How to Win</Text>
-            <Text style={styles.rulesText}>Be the first to play all your cards. Match the suit or the value. Use action cards strategically: Skip, Reverse, +2, Block, Wild.</Text>
+            <Text style={styles.rulesText}>Be the first to play all your cards. Match the suit or rank. Sevens add +2 to the draw stack; Jacks choose the active suit.</Text>
           </View>
 
           <NoMoneyFooter />

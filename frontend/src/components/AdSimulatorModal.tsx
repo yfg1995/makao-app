@@ -16,8 +16,7 @@ interface AdSimulatorModalProps {
 
 /**
  * Fake/simulated rewarded ad. NEVER serves real ads.
- * Shows a 30 second counter, a faux "Sponsor" banner, and a Skip button that
- * only becomes active once the timer hits zero. On complete it calls onComplete
+ * Shows a 30 second counter and a faux "Sponsor" banner. On complete it calls onComplete
  * exactly once and then onClose. Closing early discards the watch (no reward).
  */
 export function AdSimulatorModal({
@@ -95,7 +94,7 @@ export function AdSimulatorModal({
           </View>
 
           <Text style={styles.timerText}>
-            {completed ? 'Reward unlocked' : `Skip in ${remaining}s`}
+            {completed ? 'Reward unlocked' : `Reward in ${remaining}s`}
           </Text>
 
           <View style={{ height: 12 }} />
@@ -104,7 +103,7 @@ export function AdSimulatorModal({
             <Button title="Continue" onPress={onClose} fullWidth icon={<Ionicons name="checkmark" size={18} color="#fff" />} />
           ) : (
             <TouchableOpacity disabled style={styles.skipDisabled}>
-              <Text style={styles.skipDisabledText}>Skip Ad</Text>
+              <Text style={styles.skipDisabledText}>Watching...</Text>
             </TouchableOpacity>
           )}
         </View>
