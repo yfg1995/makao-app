@@ -1,13 +1,13 @@
 import { AxiosHeaders, create, type AxiosInstance } from 'axios';
 import { storage } from '../utils/storage';
 
-const DEFAULT_BACKEND_URL = 'https://card-rush-arena.preview.emergentagent.com';
-const RAW_BASE = (
+const RAW_BACKEND_URL = (
   process.env.EXPO_PUBLIC_BACKEND_URL ||
   process.env.EXPO_BACKEND_URL ||
-  DEFAULT_BACKEND_URL
-).replace(/\/$/, '');
-const API_BASE = RAW_BASE ? `${RAW_BASE}/api` : '/api';
+  ''
+).trim();
+const NORMALIZED_BACKEND_URL = RAW_BACKEND_URL.replace(/\/$/, '');
+const API_BASE = NORMALIZED_BACKEND_URL ? `${NORMALIZED_BACKEND_URL}/api` : '/api';
 
 export const api: AxiosInstance = create({
   baseURL: API_BASE,
@@ -27,3 +27,4 @@ api.interceptors.request.use(async (config) => {
 });
 
 export const API_BASE_URL = API_BASE;
+export const BACKEND_BASE_URL = NORMALIZED_BACKEND_URL;

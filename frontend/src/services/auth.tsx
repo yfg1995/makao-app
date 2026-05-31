@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import { getFirebaseAuth } from '../../lib/firebase';
 import { storage } from '../utils/storage';
-import { api } from './api';
+import { api, API_BASE_URL } from './api';
 
 export interface User {
   id: string;
@@ -42,6 +42,23 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function backendAuthError(e: any, route: string) {
+  const status = e?.response?.status;
+  const detail = e?.response?.data?.detail;
+  if (status === 404) {
+    return new Error(
+      `Game backend route ${route} was not found at ${API_BASE_URL}. ` +
+      'Redeploy the backend/API on Vercel or set EXPO_PUBLIC_BACKEND_URL to the live backend URL.'
+    );
+  }
+  if (typeof detail === 'string') return new Error(detail);
+  if (detail?.message) return new Error(detail.message);
+  if (e?.message?.includes('Network Error')) {
+    return new Error('Cannot reach the game backend. Check EXPO_PUBLIC_BACKEND_URL and backend deployment.');
+  }
+  return e instanceof Error ? e : new Error('Could not reach the game backend.');
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,19 +87,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const credential = await signInAnonymously(getFirebaseAuth());
       await completeFirebaseSignIn(credential.user, username, gender);
     } catch {
-      const { data } = await api.post('/auth/guest', { username: username || null, gender: gender || null });
-      await storage.setToken(data.session_token);
-      setUser(data.user);
+      try {
+        const { data } = await api.post('/auth/guest', { username: username || null, gender: gender || null });
+        await storage.setToken(data.session_token);
+        setUser(data.user);
+      } catch (e: any) {
+        throw backendAuthError(e, '/auth/guest');
+      }
     }
   };
 
   const completeFirebaseSignIn = async (firebaseUser: FirebaseUser, username?: string, gender?: 'male' | 'female') => {
     const idToken = await firebaseUser.getIdToken();
-    const { data } = await api.post('/auth/firebase', {
-      id_token: idToken,
-      username: username || null,
-      gender: gender || null,
-    });
+    let data;
+    try {
+      const response = await api.post('/auth/firebase', {
+        id_token: idToken,
+        username: username || null,
+        gender: gender || null,
+      });
+      data = response.data;
+    } catch (e: any) {
+      throw backendAuthError(e, '/auth/firebase');
+    }
     await storage.setToken(data.session_token);
     setUser(data.user);
   };

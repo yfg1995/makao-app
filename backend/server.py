@@ -15,8 +15,9 @@ load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "card_rush_arena")
+MONGO_SERVER_SELECTION_TIMEOUT_MS = int(os.environ.get("MONGO_SERVER_SELECTION_TIMEOUT_MS", "5000"))
 
-client = AsyncIOMotorClient(MONGO_URL)
+client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=MONGO_SERVER_SELECTION_TIMEOUT_MS)
 db = client[DB_NAME]
 
 app = FastAPI(title="Card Rush Arena API")

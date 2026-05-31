@@ -2,7 +2,20 @@
   "installCommand": "cd frontend && npm ci --no-audit --no-fund --loglevel=error",
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/**/*.py": {
+      "excludeFiles": "{frontend/**,backend/tests/**,tests/**,test_reports/**,memory/**,**/__pycache__/**,**/*.pyc}"
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/[...path].py"
+    },
     {
       "source": "/:path*",
       "destination": "/index.html"
