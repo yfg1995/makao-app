@@ -51,6 +51,7 @@ class UserPublic(BaseModel):
     daily_streak: int = 0
     last_daily_claim: Optional[str] = None
     guest_mode: bool = False
+    gender: Optional[str] = None
     created_at: Optional[str] = None
 
 class MatchResultIn(BaseModel):
@@ -68,13 +69,15 @@ class MissionClaimIn(BaseModel):
 class FirebaseAuthIn(BaseModel):
     id_token: str = Field(..., min_length=20)
     username: Optional[str] = None
+    gender: Optional[str] = None
 
 # Economy constants — server is source of truth
 MATCH_ENTRY_COIN_COST = 100
 MATCH_ENTRY_TICKET_COST = 1
-AD_REWARD_PER_PAIR_COINS = 100   # every 2 ads watched
-AD_DAILY_MAX_WATCHES = 6          # max 6 ads/day => 300 coins/day max
-AD_WATCH_MIN_INTERVAL_SECONDS = 3 # anti-spam between watches
+MATCH_DAILY_LIMIT = int(os.environ.get("MATCH_DAILY_LIMIT", "3"))
+AD_PAIR_SIZE = 2
+AD_REWARD_PER_PAIR_COINS = 100   # every 2 ads watched, enough for one match
+AD_WATCH_MIN_INTERVAL_SECONDS = int(os.environ.get("AD_WATCH_MIN_INTERVAL_SECONDS", "30"))
 
 # ---------- Helpers ----------
 def _now():
@@ -87,12 +90,18 @@ def _league_for_rp(rp: int) -> str:
     if rp >= 700: return "Silver"
     return "Bronze"
 
+def _sanitize_gender(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    normalized = str(value).strip().lower()
+    return normalized if normalized in {"male", "female"} else None
+
 async def _ensure_user(user_doc: Dict[str, Any]) -> Dict[str, Any]:
     # default fields
     defaults = {
         "coins": 1000, "tickets": 5, "rank_points": 0, "league": "Bronze",
         "level": 1, "xp": 0, "daily_streak": 0, "last_daily_claim": None,
-        "guest_mode": False,
+        "guest_mode": False, "gender": None,
     }
     updates = {}
     for k, v in defaults.items():
@@ -118,6 +127,7 @@ def _user_to_public(u: Dict[str, Any]) -> Dict[str, Any]:
         "daily_streak": u.get("daily_streak", 0),
         "last_daily_claim": u.get("last_daily_claim"),
         "guest_mode": u.get("guest_mode", False),
+        "gender": _sanitize_gender(u.get("gender")),
         "created_at": u.get("created_at"),
     }
 
@@ -225,6 +235,7 @@ async def auth_session(response: Response, x_session_id: Optional[str] = Header(
     email = data.get("email")
     name = data.get("name") or (email.split("@")[0] if email else "Player")
     picture = data.get("picture")
+    gender = _sanitize_gender(data.get("gender"))
     session_token = data.get("session_token") or str(uuid.uuid4())
 
     user = await db.users.find_one({"email": email}) if email else None
@@ -244,14 +255,20 @@ async def auth_session(response: Response, x_session_id: Optional[str] = Header(
             "daily_streak": 0,
             "last_daily_claim": None,
             "guest_mode": False,
+            "gender": gender,
             "created_at": _now().isoformat(),
         }
         await db.users.insert_one(user)
     else:
-        await db.users.update_one({"_id": user["_id"]}, {"$set": {"picture": picture, "username": name, "guest_mode": False}})
+        updates = {"picture": picture, "username": name, "guest_mode": False}
+        if gender:
+            updates["gender"] = gender
+        await db.users.update_one({"_id": user["_id"]}, {"$set": updates})
         user["picture"] = picture
         user["username"] = name
         user["guest_mode"] = False
+        if gender:
+            user["gender"] = gender
     user = await _ensure_user(user)
 
     expires_at = _now() + timedelta(days=7)
@@ -274,6 +291,7 @@ async def auth_firebase(payload: FirebaseAuthIn, response: Response):
     firebase_uid = claims.get("user_id") or claims.get("sub")
     email = claims.get("email")
     picture = claims.get("picture")
+    gender = _sanitize_gender(payload.gender)
     requested_name = (payload.username or "").strip()[:24]
     default_name = claims.get("name") or (email.split("@")[0] if email else "Player")
     username = requested_name if len(requested_name) >= 2 else default_name
@@ -299,11 +317,14 @@ async def auth_firebase(payload: FirebaseAuthIn, response: Response):
             "daily_streak": 0,
             "last_daily_claim": None,
             "guest_mode": False,
+            "gender": gender,
             "created_at": _now().isoformat(),
         }
         await db.users.insert_one(user)
     else:
         updates = {"firebase_uid": firebase_uid, "email": email, "guest_mode": False}
+        if gender:
+            updates["gender"] = gender
         if picture:
             updates["picture"] = picture
         if requested_name and requested_name != user.get("username"):
@@ -331,6 +352,7 @@ async def auth_firebase(payload: FirebaseAuthIn, response: Response):
 @api.post("/auth/guest")
 async def auth_guest(payload: Dict[str, Any]):
     username = (payload or {}).get("username") or f"Guest{uuid.uuid4().hex[:6].upper()}"
+    gender = _sanitize_gender((payload or {}).get("gender"))
     uid = str(uuid.uuid4())
     user = {
         "_id": uid,
@@ -346,6 +368,7 @@ async def auth_guest(payload: Dict[str, Any]):
         "daily_streak": 0,
         "last_daily_claim": None,
         "guest_mode": True,
+        "gender": gender,
         "created_at": _now().isoformat(),
     }
     await db.users.insert_one(user)
@@ -377,6 +400,21 @@ async def match_start(user=Depends(get_current_user)):
     This is the sole gate for starting a match — frontend MUST call this
     before opening the game screen.
     """
+    today = _today_key()
+    completed_today = await db.matches.count_documents({"user_id": user["_id"], "day": today})
+    active_today = await db.matches_active.count_documents({"user_id": user["_id"], "day": today})
+    matches_today = completed_today + active_today
+    if matches_today >= MATCH_DAILY_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "DAILY_MATCH_LIMIT_REACHED",
+                "message": f"Daily match limit reached ({MATCH_DAILY_LIMIT}). Come back tomorrow.",
+                "matches_today": matches_today,
+                "daily_limit": MATCH_DAILY_LIMIT,
+            },
+        )
+
     tickets = int(user.get("tickets", 0))
     coins = int(user.get("coins", 0))
 
@@ -419,6 +457,7 @@ async def match_start(user=Depends(get_current_user)):
     await db.matches_active.insert_one({
         "_id": match_id,
         "user_id": user["_id"],
+        "day": today,
         "started_at": _now().isoformat(),
         "entry_paid_with": used,
         "entry_ticket_cost": MATCH_ENTRY_TICKET_COST if used == "ticket" else 0,
@@ -428,6 +467,8 @@ async def match_start(user=Depends(get_current_user)):
     return {
         "match_id": match_id,
         "paid_with": used,
+        "matches_today": matches_today + 1,
+        "daily_match_limit": MATCH_DAILY_LIMIT,
         "user": _user_to_public(user),
     }
 
@@ -438,28 +479,26 @@ def _today_key() -> str:
 
 @api.get("/ads/progress")
 async def ads_progress(user=Depends(get_current_user)):
-    """Return how many ads watched today + progress toward next 100-coin reward."""
+    """Return ad progress toward the next 100-coin virtual reward."""
     today = _today_key()
     doc = await db.ad_progress.find_one({"user_id": user["_id"], "day": today})
     watched = int(doc["count"]) if doc else 0
-    daily_cap_reached = watched >= AD_DAILY_MAX_WATCHES
-    next_reward_in = max(0, 2 - (watched % 2)) if not daily_cap_reached else 0
+    next_reward_in = AD_PAIR_SIZE - (watched % AD_PAIR_SIZE)
     return {
         "watched_today": watched,
-        "daily_cap": AD_DAILY_MAX_WATCHES,
-        "pair_size": 2,
+        "daily_cap": None,
+        "pair_size": AD_PAIR_SIZE,
         "reward_per_pair": AD_REWARD_PER_PAIR_COINS,
         "next_reward_in": next_reward_in,
-        "daily_cap_reached": daily_cap_reached,
-        "coins_earned_today": (watched // 2) * AD_REWARD_PER_PAIR_COINS,
-        "max_coins_today": (AD_DAILY_MAX_WATCHES // 2) * AD_REWARD_PER_PAIR_COINS,
+        "daily_cap_reached": False,
+        "coins_earned_today": (watched // AD_PAIR_SIZE) * AD_REWARD_PER_PAIR_COINS,
+        "max_coins_today": None,
     }
 
 
 @api.post("/ads/watch")
 async def ads_watch(user=Depends(get_current_user)):
     """Record one ad watch. Every pair (2 ads) grants AD_REWARD_PER_PAIR_COINS.
-    Daily cap: AD_DAILY_MAX_WATCHES. All validation is server-side.
     Anti-spam: ad watches must be at least AD_WATCH_MIN_INTERVAL_SECONDS apart.
     """
     today = _today_key()
@@ -472,23 +511,25 @@ async def ads_watch(user=Depends(get_current_user)):
         if isinstance(last_at, datetime):
             if last_at.tzinfo is None:
                 last_at = last_at.replace(tzinfo=timezone.utc)
-            if (now - last_at).total_seconds() < AD_WATCH_MIN_INTERVAL_SECONDS:
-                raise HTTPException(status_code=429, detail="Watch too fast — wait a moment.")
+            elapsed = (now - last_at).total_seconds()
+            if elapsed < AD_WATCH_MIN_INTERVAL_SECONDS:
+                wait_seconds = max(1, int(AD_WATCH_MIN_INTERVAL_SECONDS - elapsed))
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "code": "AD_WATCH_TOO_FAST",
+                        "message": f"Please wait {wait_seconds}s before claiming another ad reward.",
+                        "wait_seconds": wait_seconds,
+                    },
+                )
         watched = int(doc.get("count", 0))
     else:
         watched = 0
 
-    if watched >= AD_DAILY_MAX_WATCHES:
-        raise HTTPException(
-            status_code=429,
-            detail={"code": "DAILY_AD_CAP_REACHED",
-                    "message": f"Daily ad limit reached ({AD_DAILY_MAX_WATCHES}). Come back tomorrow."},
-        )
-
     new_watched = watched + 1
     granted_coins = 0
-    # Grant on every 2nd watch
-    if new_watched % 2 == 0:
+    # Grant on every 2nd completed mock ad.
+    if new_watched % AD_PAIR_SIZE == 0:
         granted_coins = AD_REWARD_PER_PAIR_COINS
         await db.users.update_one(
             {"_id": user["_id"]},
@@ -503,13 +544,17 @@ async def ads_watch(user=Depends(get_current_user)):
         upsert=True,
     )
 
-    next_reward_in = max(0, 2 - (new_watched % 2)) if new_watched < AD_DAILY_MAX_WATCHES else 0
+    next_reward_in = AD_PAIR_SIZE - (new_watched % AD_PAIR_SIZE)
     return {
         "watched_today": new_watched,
-        "daily_cap": AD_DAILY_MAX_WATCHES,
+        "daily_cap": None,
+        "pair_size": AD_PAIR_SIZE,
+        "reward_per_pair": AD_REWARD_PER_PAIR_COINS,
         "granted_coins": granted_coins,
         "next_reward_in": next_reward_in,
-        "daily_cap_reached": new_watched >= AD_DAILY_MAX_WATCHES,
+        "daily_cap_reached": False,
+        "coins_earned_today": (new_watched // AD_PAIR_SIZE) * AD_REWARD_PER_PAIR_COINS,
+        "max_coins_today": None,
         "user": _user_to_public(user),
     }
 
@@ -546,7 +591,7 @@ async def match_result(payload: MatchResultIn, user=Depends(get_current_user)):
     )
     await db.matches.insert_one({
         "_id": str(uuid.uuid4()), "match_id": payload.match_id,
-        "user_id": user["_id"], "won": payload.won,
+        "user_id": user["_id"], "day": active_match.get("day") or _today_key(), "won": payload.won,
         "entry_paid_with": active_match.get("entry_paid_with"),
         "cards_left": payload.cards_left, "duration_seconds": payload.duration_seconds,
         "coins_earned": coins, "rank_points_delta": rp_delta, "xp_earned": xp,
@@ -558,14 +603,14 @@ async def match_result(payload: MatchResultIn, user=Depends(get_current_user)):
 
 @api.get("/leaderboard")
 async def leaderboard(user=Depends(get_current_user)):
-    cursor = db.users.find({}, {"username":1, "rank_points":1, "league":1, "picture":1, "level":1}).sort("rank_points", -1).limit(50)
+    cursor = db.users.find({}, {"username":1, "rank_points":1, "league":1, "picture":1, "level":1, "gender":1}).sort("rank_points", -1).limit(50)
     rows = []
     rank = 1
     async for u in cursor:
         rows.append({
             "rank": rank, "id": u["_id"], "username": u.get("username","Player"),
             "rank_points": u.get("rank_points",0), "league": u.get("league","Bronze"),
-            "picture": u.get("picture"), "level": u.get("level",1),
+            "picture": u.get("picture"), "level": u.get("level",1), "gender": _sanitize_gender(u.get("gender")),
             "is_me": u["_id"] == user["_id"],
         })
         rank += 1
@@ -703,12 +748,8 @@ async def missions_claim(payload: MissionClaimIn, user=Depends(get_current_user)
         raise HTTPException(status_code=401, detail="User not found")
     return {"reward": reward, "user": _user_to_public(updated_user)}
 
-# Coin-bundle and ticket-pack endpoints have been
-# permanently removed. Coins are earned via:
-#   • gameplay rewards (/match/result)
-#   • daily reward (/daily/claim)
-#   • watching mock ads in pairs (/ads/watch — 2 ads = 100 coins)
-# The paired /ads/watch system has a strict server-side daily cap.
+# Coin-bundle and ticket-pack endpoints have been permanently removed.
+# Coins are earned via gameplay rewards, daily reward, and mock ad pairs.
 
 @api.patch("/profile")
 async def update_profile(payload: Dict[str, Any], user=Depends(get_current_user)):
@@ -717,29 +758,36 @@ async def update_profile(payload: Dict[str, Any], user=Depends(get_current_user)
         uname = payload["username"].strip()[:24]
         if len(uname) >= 2:
             updates["username"] = uname
+    if "gender" in payload:
+        gender = _sanitize_gender(payload.get("gender"))
+        if gender:
+            updates["gender"] = gender
     if updates:
         await db.users.update_one({"_id": user["_id"]}, {"$set": updates})
         user.update(updates)
     return _user_to_public(user)
 
-# Seed bot leaderboard entries (once)
-async def seed_bots():
-    count = await db.users.count_documents({"bot": True})
+# Seed leaderboard profile entries (once)
+async def seed_leaderboard_profiles():
+    count = await db.users.count_documents({"seeded_profile": True})
     if count >= 12:
         return
-    bot_names = [
-        ("AceFlame", 4200, "Diamond"), ("WaveLord", 3800, "Platinum"), ("LeafSage", 3300, "Platinum"),
-        ("BoltKing", 2900, "Platinum"), ("NovaCat", 2300, "Gold"), ("PixelPaw", 1900, "Gold"),
-        ("ShadeLynx", 1700, "Gold"), ("EmberFox", 1300, "Silver"), ("MossElk", 1100, "Silver"),
-        ("GaleHawk", 900, "Silver"), ("SparkOtter", 500, "Bronze"), ("DewMouse", 200, "Bronze"),
+    seeded_profiles = [
+        ("Lena Storm", "female", 4200, "Diamond"), ("Mila Nova", "female", 3800, "Platinum"),
+        ("Sofija Ace", "female", 3300, "Platinum"), ("Nikola King", "male", 2900, "Platinum"),
+        ("Marko Wave", "male", 2300, "Gold"), ("Ana Spark", "female", 1900, "Gold"),
+        ("Luka Prime", "male", 1700, "Gold"), ("Tara Leaf", "female", 1300, "Silver"),
+        ("Stefan Bolt", "male", 1100, "Silver"), ("Dunja Star", "female", 900, "Silver"),
+        ("Viktor Rush", "male", 500, "Bronze"), ("Sara Shine", "female", 200, "Bronze"),
     ]
-    for name, rp, lg in bot_names:
+    for name, gender, rp, lg in seeded_profiles:
         if await db.users.find_one({"username": name}):
             continue
         await db.users.insert_one({
             "_id": str(uuid.uuid4()), "username": name, "email": None,
             "coins": 1000, "tickets": 5, "rank_points": rp, "league": lg,
-            "level": max(1, rp // 250), "xp": 0, "bot": True,
+            "level": max(1, rp // 250), "xp": 0, "gender": gender,
+            "seeded_profile": True,
             "created_at": _now().isoformat()
         })
 
@@ -749,6 +797,8 @@ async def ensure_indexes():
     await db.ad_progress.create_index([("user_id", 1), ("day", 1)], unique=True)
     await db.mission_claims.create_index([("user_id", 1), ("day", 1), ("mission_id", 1)], unique=True)
     await db.matches_active.create_index([("user_id", 1), ("started_at", 1)])
+    await db.matches_active.create_index([("user_id", 1), ("day", 1)])
+    await db.matches.create_index([("user_id", 1), ("day", 1)])
 
 @app.on_event("startup")
 async def on_startup():
@@ -765,6 +815,6 @@ async def on_startup():
     except Exception:
         pass
     await ensure_indexes()
-    await seed_bots()
+    await seed_leaderboard_profiles()
 
 app.include_router(api)
