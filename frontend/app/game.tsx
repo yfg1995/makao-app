@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,8 +39,8 @@ import { useAuth } from '../src/services/auth';
 import { api } from '../src/services/api';
 
 // DiceBear avatar URL generator
-const getDiceBearAvatar = (seed: string, style: 'adventurer' | 'avataaars' | 'bottts' | 'lorelei' = 'adventurer') => {
-  return `https://api.dicebear.com/7.x/${style}/png?seed=${encodeURIComponent(seed)}&size=64`;
+const getDiceBearAvatar = (seed: string) => {
+  return `https://api.dicebear.com/7.x/adventurer/png?seed=${encodeURIComponent(seed)}&size=64`;
 };
 
 export default function GameScreen() {
@@ -57,9 +58,9 @@ export default function GameScreen() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const compact = width < 380 || height < 760;
-  const handCardWidth = compact ? 64 : width < 430 ? 72 : 78;
-  const tableCardWidth = compact ? 76 : 88;
+  const compact = width < 380 || height < 700;
+  const handCardWidth = compact ? 58 : width < 430 ? 68 : 74;
+  const tableCardWidth = compact ? 70 : 85;
 
   const top = topCard(state);
   const human = state.players[0];
@@ -187,125 +188,103 @@ export default function GameScreen() {
   }
 
   const myTurn = state.turn === 0 && state.winner === null;
-
-  // Get opponents - indices 1, 2, 3
-  const leftOpponent = state.players[1];
-  const topOpponent = state.players[2];
-  const rightOpponent = state.players[3];
+  const opponents = [state.players[1], state.players[2], state.players[3]];
 
   return (
     <LinearGradient colors={['#053827', '#0B5A3C', '#07261D']} style={{ flex: 1 }}>
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.phoneFrame}>
-          {/* Top Bar - Leave game and Score only */}
+          {/* Top Bar */}
           <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => setShowQuitConfirm(true)} style={styles.leaveBtn}>
-              <Ionicons name="exit-outline" color={theme.colors.text} size={18} />
-              <Text style={styles.leaveText}>Izađi</Text>
+            <TouchableOpacity onPress={() => setShowQuitConfirm(true)} style={styles.topBtn}>
+              <Ionicons name="exit-outline" color="#fff" size={18} />
+              <Text style={styles.topBtnText}>Leave</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowScore((current) => !current)} style={styles.scoreBtn}>
-              <Text style={styles.scoreBtnText}>Rezultat</Text>
-              <Ionicons name={showScore ? 'chevron-up' : 'chevron-down'} size={16} color={theme.colors.text} />
+            <TouchableOpacity onPress={() => setShowScore((c) => !c)} style={styles.topBtn}>
+              <Text style={styles.topBtnText}>Score</Text>
+              <Ionicons name={showScore ? 'chevron-up' : 'chevron-down'} size={16} color="#fff" />
             </TouchableOpacity>
           </View>
 
-          {/* Score Panel */}
-          {showScore ? (
+          {/* Score Panel - Collapsible */}
+          {showScore && (
             <View style={styles.scorePanel}>
-              {state.players.map((player) => (
-                <View key={player.id} style={styles.scoreRow}>
-                  <Image 
-                    source={{ uri: getDiceBearAvatar(player.avatarName, 'adventurer') }} 
-                    style={styles.scoreAvatar}
-                  />
-                  <Text style={styles.scoreName} numberOfLines={1}>{player.name}</Text>
-                  <View style={styles.scoreCards}>
-                    <Ionicons name="albums" size={13} color="#F7D98C" />
-                    <Text style={styles.scoreCardsText}>{player.hand.length}</Text>
+              {state.players.map((player, idx) => (
+                <View key={player.id} style={[styles.scoreRow, idx === state.turn && styles.scoreRowActive]}>
+                  <Image source={{ uri: getDiceBearAvatar(player.avatarName) }} style={styles.scoreAvatar} />
+                  <Text style={[styles.scoreName, idx === 0 && styles.scoreNameYou]} numberOfLines={1}>
+                    {idx === 0 ? 'You' : player.name}
+                  </Text>
+                  <View style={styles.cardsBadge}>
+                    <Text style={styles.cardsBadgeText}>{player.hand.length}</Text>
                   </View>
                 </View>
               ))}
             </View>
-          ) : null}
+          )}
 
-          {/* Main Game Board */}
-          <View style={styles.boardShell}>
-            <View style={styles.tableSurface}>
-              {/* Game Layout: Left - Center (Top & Table) - Right */}
-              <View style={styles.gameLayout}>
-                {/* Left Opponent */}
-                <View style={styles.sideColumn}>
-                  {leftOpponent && (
-                    <OpponentCard 
-                      player={leftOpponent} 
-                      isActive={state.turn === 1}
-                      position="left"
-                    />
-                  )}
-                </View>
-
-                {/* Center Column: Top Opponent + Table */}
-                <View style={styles.centerColumn}>
-                  {/* Top Opponent */}
-                  {topOpponent && (
-                    <View style={styles.topOpponentContainer}>
-                      <OpponentCard 
-                        player={topOpponent} 
-                        isActive={state.turn === 2}
-                        position="top"
-                      />
-                    </View>
-                  )}
-
-                  {/* Table Center - Draw Pile & Discard Pile */}
-                  <View style={[styles.tableCenter, compact && styles.tableCenterCompact]}>
-                    <PressScale onPress={onDraw} disabled={!myTurn} style={{ opacity: myTurn ? 1 : 0.6 }}>
-                      <View style={styles.drawPileWrap}>
-                        <View style={[styles.cardShadow, { width: tableCardWidth, height: tableCardWidth * 1.45 }]} />
-                        <CardView card={{ id: 'back', suit: 'Hearts', value: 'A', action: null }} hidden width={tableCardWidth} />
-                      </View>
-                    </PressScale>
-
-                    <View style={{ width: compact ? 14 : 20 }} />
-
-                    <View style={styles.discardWrap}>
-                      <CardView card={top} width={tableCardWidth + 10} />
-                    </View>
+          {/* Main Game Area */}
+          <View style={styles.gameArea}>
+            {/* Opponents Row - All 3 at top */}
+            <View style={styles.opponentsRow}>
+              {opponents.map((opponent, idx) => (
+                <View 
+                  key={opponent.id} 
+                  style={[
+                    styles.opponentSlot,
+                    state.turn === idx + 1 && styles.opponentSlotActive,
+                  ]}
+                >
+                  <Image source={{ uri: getDiceBearAvatar(opponent.avatarName) }} style={styles.opponentAvatar} />
+                  <Text style={styles.opponentName} numberOfLines={1}>{opponent.name}</Text>
+                  <View style={styles.opponentCards}>
+                    <Ionicons name="albums-outline" size={12} color="#FFD700" />
+                    <Text style={styles.opponentCardsText}>{opponent.hand.length}</Text>
                   </View>
                 </View>
+              ))}
+            </View>
 
-                {/* Right Opponent */}
-                <View style={styles.sideColumn}>
-                  {rightOpponent && (
-                    <OpponentCard 
-                      player={rightOpponent} 
-                      isActive={state.turn === 3}
-                      position="right"
-                    />
-                  )}
+            {/* Table Center - Draw & Discard */}
+            <View style={styles.tableCenter}>
+              <PressScale onPress={onDraw} disabled={!myTurn} style={{ opacity: myTurn ? 1 : 0.6 }}>
+                <View style={styles.drawPile}>
+                  <CardView card={{ id: 'back', suit: 'Hearts', value: 'A', action: null }} hidden width={tableCardWidth} />
+                  <Text style={styles.drawLabel}>Draw</Text>
                 </View>
+              </PressScale>
+
+              <View style={styles.discardPile}>
+                <CardView card={top} width={tableCardWidth + 8} />
               </View>
+            </View>
+
+            {/* Turn Indicator */}
+            <View style={styles.turnIndicator}>
+              <Text style={[styles.turnText, myTurn && styles.turnTextActive]}>
+                {myTurn ? "Your Turn" : `${state.players[state.turn].name}'s Turn`}
+              </Text>
             </View>
           </View>
 
-          {/* Player's Hand - Cards are centered */}
+          {/* Player's Hand */}
           <View style={styles.handArea}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[styles.handScroll, { paddingHorizontal: compact ? 10 : 14 }]}
+              contentContainerStyle={styles.handScroll}
             >
               {human.hand.map((card) => {
                 const playable = legalIds.has(card.id) && myTurn;
                 return (
-                  <CardView
-                    key={card.id}
-                    card={card}
-                    width={handCardWidth}
-                    onPress={() => onPlayCard(card.id)}
-                    disabled={!playable}
-                    highlight={false}
-                  />
+                  <View key={card.id} style={styles.cardWrapper}>
+                    <CardView
+                      card={card}
+                      width={handCardWidth}
+                      onPress={() => onPlayCard(card.id)}
+                      disabled={!playable}
+                    />
+                  </View>
                 );
               })}
             </ScrollView>
@@ -313,19 +292,24 @@ export default function GameScreen() {
 
           {/* Suit Picker Modal */}
           <Modal transparent visible={showSuitPicker} animationType="fade" onRequestClose={() => { setShowSuitPicker(false); setPendingSuitChoiceId(null); }}>
-            <View style={styles.modalRoot}>
+            <View style={styles.modalOverlay}>
               <View style={styles.modalCard}>
-                <Text style={styles.modalTitle}>Izaberi boju za Žandara</Text>
+                <Text style={styles.modalTitle}>Choose Suit</Text>
                 <View style={styles.suitGrid}>
                   {SUIT_LIST.map((suit) => (
-                    <PressScale key={suit} style={[styles.suitBtn, { borderColor: suitAccentColor(suit) }]} onPress={() => chooseSuit(suit)}>
-                      <Text style={[styles.suitBtnGlyph, { color: suitColor(suit) }]}>{suitGlyph(suit)}</Text>
-                      <Text style={styles.suitBtnLabel}>{getSuitNameSr(suit)}</Text>
-                    </PressScale>
+                    <TouchableOpacity 
+                      key={suit} 
+                      style={[styles.suitBtn, { borderColor: suitAccentColor(suit) }]} 
+                      onPress={() => chooseSuit(suit)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.suitGlyph, { color: suitColor(suit) }]}>{suitGlyph(suit)}</Text>
+                      <Text style={styles.suitLabel}>{suit}</Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
-                <TouchableOpacity style={styles.modalSecondaryBtn} onPress={() => { setShowSuitPicker(false); setPendingSuitChoiceId(null); }}>
-                  <Text style={styles.modalSecondaryText}>Otkaži</Text>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowSuitPicker(false); setPendingSuitChoiceId(null); }}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -333,15 +317,15 @@ export default function GameScreen() {
 
           {/* Quit Confirm Modal */}
           <Modal transparent visible={showQuitConfirm} animationType="fade" onRequestClose={() => setShowQuitConfirm(false)}>
-            <View style={styles.modalRoot}>
+            <View style={styles.modalOverlay}>
               <View style={styles.modalCard}>
-                <Text style={styles.modalTitle}>Napusti meč?</Text>
-                <Text style={styles.modalText}>Izgubićeš meč i 10 RP poena.</Text>
-                <TouchableOpacity style={styles.modalPrimaryBtn} onPress={() => setShowQuitConfirm(false)}>
-                  <Text style={styles.modalPrimaryText}>Nastavi igru</Text>
+                <Text style={styles.modalTitle}>Leave Match?</Text>
+                <Text style={styles.modalText}>You will lose the match and 10 RP.</Text>
+                <TouchableOpacity style={styles.primaryBtn} onPress={() => setShowQuitConfirm(false)}>
+                  <Text style={styles.primaryBtnText}>Continue Playing</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.modalDangerBtn} onPress={forfeit}>
-                  <Text style={styles.modalPrimaryText}>Napusti igru</Text>
+                <TouchableOpacity style={styles.dangerBtn} onPress={forfeit}>
+                  <Text style={styles.dangerBtnText}>Leave Game</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -352,252 +336,176 @@ export default function GameScreen() {
   );
 }
 
-// Helper function for Serbian suit names
-function getSuitNameSr(suit: Suit): string {
-  switch (suit) {
-    case 'Hearts': return 'Herc';
-    case 'Diamonds': return 'Karo';
-    case 'Clubs': return 'Tref';
-    case 'Spades': return 'Pik';
-  }
-}
-
-// Opponent Card Component with DiceBear Avatar
-interface OpponentCardProps {
-  player: {
-    id: string;
-    name: string;
-    avatarName: string;
-    avatarColor: string;
-    hand: { id: string }[];
-  };
-  isActive: boolean;
-  position: 'left' | 'top' | 'right';
-}
-
-function OpponentCard({ player, isActive, position }: OpponentCardProps) {
-  const isHorizontal = position === 'left' || position === 'right';
-  
-  return (
-    <View
-      style={[
-        styles.opponentSlot,
-        isActive && styles.opponentSlotActive,
-        isHorizontal && styles.opponentSlotHorizontal,
-      ]}
-    >
-      <Image 
-        source={{ uri: getDiceBearAvatar(player.avatarName, 'adventurer') }} 
-        style={styles.avatar}
-      />
-      <Text style={[styles.opponentName, isActive && { color: '#FFE08A' }]} numberOfLines={1}>
-        {player.name}
-      </Text>
-      <View style={styles.cardCountRow}>
-        <Ionicons name="albums" size={13} color="#F7D98C" />
-        <Text style={styles.opponentCount}>{player.hand.length}</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  safe: { flex: 1, alignItems: 'center' },
-  phoneFrame: { flex: 1, width: '100%', maxWidth: 430 },
-  
+  safe: { flex: 1 },
+  phoneFrame: { flex: 1, width: '100%', maxWidth: 500, alignSelf: 'center' },
+  status: { color: '#FDE68A', fontSize: 16, fontWeight: '700' },
+
   // Top Bar
-  topBar: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between', 
-    paddingHorizontal: 12, 
-    paddingVertical: 8, 
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  leaveBtn: { 
-    height: 40, 
-    borderRadius: 20, 
-    paddingHorizontal: 14, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    gap: 6, 
-    backgroundColor: 'rgba(5,31,24,0.88)', 
-    borderWidth: 1, 
-    borderColor: 'rgba(236,255,244,0.28)' 
+  topBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 20,
   },
-  leaveText: { color: theme.colors.text, fontSize: 13, fontWeight: '800' },
-  scoreBtn: { 
-    height: 40, 
-    borderRadius: 20, 
-    paddingHorizontal: 14, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    gap: 4, 
-    backgroundColor: 'rgba(5,31,24,0.88)', 
-    borderWidth: 1, 
-    borderColor: 'rgba(236,255,244,0.28)' 
-  },
-  scoreBtnText: { color: theme.colors.text, fontSize: 13, fontWeight: '800' },
-  
+  topBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+
   // Score Panel
-  scorePanel: { 
-    marginHorizontal: 12, 
-    marginBottom: 8, 
-    padding: 12, 
-    borderRadius: 12, 
-    backgroundColor: '#5B351C', 
-    borderWidth: 2, 
-    borderColor: '#D59B43', 
-    gap: 8 
+  scorePanel: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
   },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  scoreAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#3A2210' },
-  scoreName: { color: '#FFF2C4', fontSize: 13, fontWeight: '800', flex: 1 },
-  scoreCards: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  scoreCardsText: { color: '#F7D98C', fontSize: 13, fontWeight: '800' },
-  
-  // Board
-  boardShell: { 
-    flex: 1, 
-    marginHorizontal: 8, 
-    marginBottom: 0, 
-    padding: 6, 
-    borderRadius: 14, 
-    backgroundColor: '#7A4A1F', 
-    borderWidth: 3, 
-    borderColor: '#D59B43', 
-    shadowColor: '#000', 
-    shadowOpacity: 0.4, 
-    shadowRadius: 12, 
-    elevation: 8 
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
-  tableSurface: { 
-    flex: 1, 
-    borderRadius: 10, 
-    backgroundColor: '#1B6B4A', 
-    borderWidth: 2, 
-    borderColor: '#0D3D2A', 
-    overflow: 'hidden' 
+  scoreRowActive: {
+    backgroundColor: 'rgba(255,215,0,0.2)',
   },
-  
-  // Game Layout - 3 columns
-  gameLayout: {
+  scoreAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#333' },
+  scoreName: { flex: 1, marginLeft: 12, color: '#fff', fontSize: 14, fontWeight: '600' },
+  scoreNameYou: { color: '#FFD700' },
+  cardsBadge: {
+    backgroundColor: '#1E40AF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  cardsBadgeText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+
+  // Game Area
+  gameArea: {
+    flex: 1,
+    marginHorizontal: 8,
+    backgroundColor: '#1B6B4A',
+    borderRadius: 16,
+    borderWidth: 4,
+    borderColor: '#0D3D2A',
+    overflow: 'hidden',
+  },
+
+  // Opponents Row
+  opponentsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  opponentSlot: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    minWidth: 90,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  opponentSlotActive: {
+    borderColor: '#FFD700',
+    backgroundColor: 'rgba(255,215,0,0.15)',
+  },
+  opponentAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#222', marginBottom: 6 },
+  opponentName: { color: '#fff', fontSize: 12, fontWeight: '700', maxWidth: 80, textAlign: 'center' },
+  opponentCards: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  opponentCardsText: { color: '#FFD700', fontSize: 12, fontWeight: '700' },
+
+  // Table Center
+  tableCenter: {
     flex: 1,
     flexDirection: 'row',
-    paddingVertical: 8,
-  },
-  sideColumn: {
-    width: 90,
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: 24,
+  },
+  drawPile: { alignItems: 'center' },
+  drawLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600', marginTop: 6 },
+  discardPile: { alignItems: 'center' },
+
+  // Turn Indicator
+  turnIndicator: {
+    paddingVertical: 10,
     alignItems: 'center',
-    paddingHorizontal: 4,
   },
-  centerColumn: {
-    flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  topOpponentContainer: {
-    alignItems: 'center',
-  },
-  
-  // Opponent Slots
-  opponentSlot: { 
-    backgroundColor: 'rgba(91,53,28,0.95)', 
-    paddingHorizontal: 8, 
-    paddingVertical: 10, 
-    borderRadius: 10, 
-    borderWidth: 2, 
-    borderColor: '#A67C52', 
-    alignItems: 'center', 
-    minWidth: 80,
-    shadowColor: '#000', 
-    shadowOpacity: 0.3, 
-    shadowRadius: 4, 
-    elevation: 3 
-  },
-  opponentSlotHorizontal: {
-    minWidth: 78,
-  },
-  opponentSlotActive: { 
-    borderColor: '#FFE08A', 
-    shadowColor: '#FFE08A', 
-    shadowOpacity: 0.6, 
-    shadowRadius: 10, 
-    elevation: 6,
-    backgroundColor: 'rgba(91,53,28,1)', 
-  },
-  avatar: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 20, 
-    marginBottom: 6,
-    backgroundColor: '#3A2210',
-    borderWidth: 2,
-    borderColor: '#D59B43',
-  },
-  opponentName: { 
-    color: theme.colors.text, 
-    fontSize: 11, 
-    fontWeight: '800', 
-    maxWidth: 70,
-    textAlign: 'center',
-  },
-  cardCountRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  opponentCount: { color: '#F7D98C', fontSize: 12, fontWeight: '800' },
-  
-  // Table Center
-  tableCenter: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center',
-  },
-  tableCenterCompact: { },
-  drawPileWrap: { alignItems: 'center', position: 'relative' },
-  cardShadow: { 
-    position: 'absolute', 
-    top: 5, 
-    left: 5, 
-    borderRadius: 8, 
-    backgroundColor: '#03150F', 
-    opacity: 0.5 
-  },
-  discardWrap: { alignItems: 'center' },
-  
-  // Status
-  status: { color: '#FDE68A', fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  
+  turnText: { color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: '600' },
+  turnTextActive: { color: '#FFD700', fontWeight: '800' },
+
   // Hand Area
-  handArea: { 
-    backgroundColor: '#4A2614', 
-    paddingTop: 10, 
-    paddingBottom: 12, 
-    borderTopWidth: 3, 
-    borderTopColor: '#D59B43' 
+  handArea: {
+    backgroundColor: '#2D1810',
+    paddingVertical: 12,
+    borderTopWidth: 3,
+    borderTopColor: '#8B4513',
   },
-  handScroll: { 
-    gap: 8, 
-    paddingVertical: 4, 
+  handScroll: {
+    paddingHorizontal: 16,
+    gap: 6,
+    alignItems: 'center',
+  },
+  cardWrapper: {
+    marginHorizontal: 2,
+  },
+
+  // Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
     alignItems: 'center',
     justifyContent: 'center',
-    flexGrow: 1,
+    padding: 24,
   },
-  
-  // Modals
-  modalRoot: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, padding: 22, width: '100%', maxWidth: 360, borderWidth: 1, borderColor: theme.colors.border },
-  modalTitle: { color: theme.colors.text, fontSize: 20, fontWeight: '900', marginBottom: 14, textAlign: 'center' },
-  modalText: { color: theme.colors.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 8 },
-  suitGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 14 },
-  suitBtn: { width: '48%', marginVertical: 6, paddingVertical: 18, alignItems: 'center', borderWidth: 2, borderRadius: theme.radius.md, backgroundColor: '#F8FAFC' },
-  suitBtnGlyph: { fontSize: 32 },
-  suitBtnLabel: { color: '#0E0B1F', fontSize: 14, fontWeight: '800', marginTop: 4 },
-  modalPrimaryBtn: { marginTop: 14, minHeight: 48, borderRadius: theme.radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.primary },
-  modalDangerBtn: { marginTop: 10, minHeight: 48, borderRadius: theme.radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: '#991B1B' },
-  modalPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  modalSecondaryBtn: { minHeight: 44, borderRadius: theme.radius.pill, alignItems: 'center', justifyContent: 'center' },
-  modalSecondaryText: { color: theme.colors.accent, fontSize: 15, fontWeight: '800' },
+  modalCard: {
+    backgroundColor: '#1F2937',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalTitle: { color: '#fff', fontSize: 20, fontWeight: '800', textAlign: 'center', marginBottom: 16 },
+  modalText: { color: '#9CA3AF', fontSize: 14, textAlign: 'center', marginBottom: 20 },
+  suitGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 16 },
+  suitBtn: {
+    width: '45%',
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 3,
+  },
+  suitGlyph: { fontSize: 32, fontWeight: '900' },
+  suitLabel: { color: '#374151', fontSize: 14, fontWeight: '700', marginTop: 4 },
+  cancelBtn: { paddingVertical: 12, alignItems: 'center' },
+  cancelBtnText: { color: '#60A5FA', fontSize: 15, fontWeight: '700' },
+  primaryBtn: {
+    backgroundColor: '#10B981',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  dangerBtn: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  dangerBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });
