@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
@@ -9,7 +10,7 @@ import uuid
 import httpx
 from dotenv import load_dotenv
 from pymongo import ReturnDocument
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 load_dotenv()
 
@@ -30,6 +31,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(PyMongoError)
+async def mongo_exception_handler(request: Request, exc: PyMongoError):
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "Database unavailable. Set MONGO_URL in the backend environment and redeploy.",
+        },
+    )
 
 EMERGENT_AUTH_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "card-rush-arena-makao")
@@ -803,8 +813,8 @@ async def ensure_indexes():
 
 @app.on_event("startup")
 async def on_startup():
-    # Clean up legacy unique indexes from prior schemas (e.g., user_id_1)
     try:
+        # Clean up legacy unique indexes from prior schemas (e.g., user_id_1)
         idx = await db.users.index_information()
         for name in list(idx.keys()):
             if name == "_id_":
@@ -813,9 +823,9 @@ async def on_startup():
                 await db.users.drop_index(name)
             except Exception:
                 pass
-    except Exception:
-        pass
-    await ensure_indexes()
-    await seed_leaderboard_profiles()
+        await ensure_indexes()
+        await seed_leaderboard_profiles()
+    except PyMongoError as exc:
+        print(f"Database startup check failed: {exc}")
 
 app.include_router(api)
