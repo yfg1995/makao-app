@@ -12,13 +12,13 @@ import { AdSimulatorModal } from '../../src/components/AdSimulatorModal';
 
 interface AdProgress {
   watched_today: number;
-  daily_cap: number;
+  daily_cap: number | null;
   pair_size: number;
   reward_per_pair: number;
   next_reward_in: number;
   daily_cap_reached: boolean;
   coins_earned_today: number;
-  max_coins_today: number;
+  max_coins_today: number | null;
 }
 
 interface DailyStatus {
@@ -35,7 +35,7 @@ interface DailyStatus {
  *   - No IAP, coin purchases, real-money winnings, betting, or gambling.
  *   - Virtual coins have no monetary value.
  *   - Coins can be earned by:
- *       1) Watching a pair of mock ads (2 ads = 100 coins, daily-capped)
+ *       1) Watching a pair of mock ads (2 ads = 100 coins)
  *       2) Claiming the daily reward
  */
 export default function Earn() {
@@ -77,8 +77,8 @@ export default function Earn() {
       if (data.granted_coins > 0) {
         setTimeout(() => Alert.alert('Reward!', `+${data.granted_coins} coins added.`), 250);
       } else {
-        const remaining = (data.pair_size || 2) - (data.watched_today % (data.pair_size || 2));
-        setTimeout(() => Alert.alert('Almost there', `Watch ${remaining} more ad to unlock 100 coins.`), 250);
+        const remaining = data.next_reward_in || ((data.pair_size || 2) - (data.watched_today % (data.pair_size || 2)));
+        setTimeout(() => Alert.alert('Almost there', `Watch ${remaining} more 30s ad to unlock 100 coins.`), 250);
       }
     } catch (e: any) {
       const msg = e?.response?.data?.detail?.message || e?.response?.data?.detail || 'Ad failed';
@@ -103,7 +103,6 @@ export default function Earn() {
 
   if (!user) return null;
 
-  const capReached = !!progress?.daily_cap_reached;
   const pairSize = progress?.pair_size ?? 2;
   const watchedInPair = progress ? progress.watched_today % pairSize : 0;
   const adNumber = (watchedInPair % pairSize) + 1;
@@ -138,9 +137,7 @@ export default function Earn() {
             </View>
             <Text style={styles.heroTitle}>Watch 2 Ads = 100 Coins</Text>
             <Text style={styles.heroSub}>
-              {capReached
-                ? 'Daily ad limit reached. Come back tomorrow.'
-                : `Ad ${watchedInPair + 1}/${pairSize} — finish the pair to unlock the reward.`}
+              {`Ad ${watchedInPair + 1}/${pairSize} - each 30s ad is half the coins for one match.`}
             </Text>
 
             <View style={styles.progressTrack}>
@@ -148,9 +145,9 @@ export default function Earn() {
             </View>
 
             <Button
-              title={capReached ? 'Maxed today' : recording ? 'Recording…' : 'Watch Ad'}
+              title={recording ? 'Recording...' : 'Watch 30s Ad'}
               onPress={() => setShowAd(true)}
-              disabled={capReached || recording}
+              disabled={recording}
               loading={recording}
               fullWidth
               icon={<Ionicons name="play" size={18} color="#fff" />}
@@ -158,7 +155,7 @@ export default function Earn() {
 
             {progress && (
               <Text style={styles.heroMeta}>
-                Ads today: {progress.watched_today}/{progress.daily_cap} · Earned: {progress.coins_earned_today}/{progress.max_coins_today} coins
+                Ads watched today: {progress.watched_today} - earned today: {progress.coins_earned_today} coins
               </Text>
             )}
           </LinearGradient>
@@ -206,7 +203,7 @@ export default function Earn() {
         onComplete={onAdComplete}
         adNumber={adNumber}
         totalAds={pairSize}
-        duration={5}
+        duration={30}
       />
     </LinearGradient>
   );

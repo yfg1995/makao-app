@@ -1,7 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, StyleProp, ViewStyle } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, StyleProp, ViewStyle, Animated, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface ButtonProps {
   title: string;
@@ -15,15 +17,16 @@ interface ButtonProps {
 }
 
 export function Button({ title, onPress, variant='primary', disabled, loading, small, icon, fullWidth }: ButtonProps) {
+  const inactive = !!disabled || !!loading;
   const baseStyle: StyleProp<ViewStyle> = [
     styles.btn,
     small ? styles.btnSmall : null,
     fullWidth ? styles.fullWidth : null,
-    disabled ? styles.disabled : null,
+    inactive ? styles.disabled : null,
   ];
   if (variant === 'primary') {
     return (
-      <TouchableOpacity activeOpacity={0.85} disabled={disabled || loading} onPress={onPress} style={baseStyle}>
+      <PressScale disabled={inactive} onPress={onPress} style={baseStyle}>
         <LinearGradient colors={[theme.colors.primary, theme.colors.accent]} start={{x:0,y:0}} end={{x:1,y:1}} style={[styles.gradient, small && styles.gradientSmall]}>
           {loading ? <ActivityIndicator color="#fff" /> : (
             <>
@@ -32,27 +35,62 @@ export function Button({ title, onPress, variant='primary', disabled, loading, s
             </>
           )}
         </LinearGradient>
-      </TouchableOpacity>
+      </PressScale>
     );
   }
   if (variant === 'secondary') {
     return (
-      <TouchableOpacity activeOpacity={0.85} disabled={disabled||loading} onPress={onPress} style={[baseStyle, styles.secondary]}>
+      <PressScale disabled={inactive} onPress={onPress} style={[baseStyle, styles.secondary]}>
         {loading ? <ActivityIndicator color={theme.colors.text} /> : <Text style={[styles.btnText, small && {fontSize: 14}]}>{title}</Text>}
-      </TouchableOpacity>
+      </PressScale>
     );
   }
   if (variant === 'danger') {
     return (
-      <TouchableOpacity activeOpacity={0.85} disabled={disabled||loading} onPress={onPress} style={[baseStyle, { backgroundColor: '#7F1D1D' }]}>
-        <Text style={[styles.btnText, small && {fontSize: 14}]}>{title}</Text>
-      </TouchableOpacity>
+      <PressScale disabled={inactive} onPress={onPress} style={[baseStyle, styles.danger]}>
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={[styles.btnText, small && {fontSize: 14}]}>{title}</Text>}
+      </PressScale>
     );
   }
   return (
-    <TouchableOpacity activeOpacity={0.85} disabled={disabled||loading} onPress={onPress} style={[baseStyle, styles.ghost]}>
+    <PressScale disabled={inactive} onPress={onPress} style={[baseStyle, styles.ghost]}>
       <Text style={[styles.btnText, { color: theme.colors.accent }, small && {fontSize: 14}]}>{title}</Text>
-    </TouchableOpacity>
+    </PressScale>
+  );
+}
+
+export function PressScale({
+  children,
+  disabled,
+  onPress,
+  style,
+}: {
+  children: React.ReactNode;
+  disabled?: boolean;
+  onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const animateTo = (toValue: number) => {
+    Animated.spring(scale, {
+      toValue,
+      friction: 6,
+      tension: 160,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <AnimatedPressable
+      disabled={disabled}
+      onPress={onPress}
+      onPressIn={() => !disabled && animateTo(0.97)}
+      onPressOut={() => animateTo(1)}
+      style={[style, { transform: [{ scale }] }]}
+    >
+      {children}
+    </AnimatedPressable>
   );
 }
 
@@ -106,6 +144,7 @@ const styles = StyleSheet.create({
   gradientSmall: { paddingVertical: 8, paddingHorizontal: 16 },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
   secondary: { backgroundColor: theme.colors.surface, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 24, borderWidth: 1, borderColor: theme.colors.border },
+  danger: { backgroundColor: '#7F1D1D', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 24 },
   ghost: { backgroundColor: 'transparent', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 24 },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.colors.surface, paddingHorizontal: 12, paddingVertical: 6, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.border },
   pillValue: { color: theme.colors.text, fontWeight: '800', fontSize: 14 },

@@ -47,6 +47,7 @@ export default function Settings() {
           <View style={styles.card}>
             <Info label="Username" value={user?.username || '-'} />
             <Info label="Email" value={user?.email || (user?.guest_mode ? 'Guest' : '-')} />
+            <Info label="Profile" value={user?.gender ? user.gender[0].toUpperCase() + user.gender.slice(1) : '-'} />
             <Info label="League" value={user?.league || '-'} />
           </View>
 

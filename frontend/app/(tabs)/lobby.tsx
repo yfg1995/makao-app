@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, useWindowDimensions, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/services/auth';
-import { Pill, NoMoneyFooter } from '../../src/components/UI';
+import { Pill, NoMoneyFooter, PressScale } from '../../src/components/UI';
 import { theme } from '../../src/theme';
 import { api } from '../../src/services/api';
 import { OutOfCoinsModal } from '../../src/components/OutOfCoinsModal';
@@ -47,9 +47,12 @@ export default function Lobby() {
       const code = e?.response?.data?.detail?.code;
       if (status === 402 || code === 'INSUFFICIENT_BALANCE') {
         setShowOOC(true);
+      } else if (status === 429 && code === 'DAILY_MATCH_LIMIT_REACHED') {
+        const detail = e?.response?.data?.detail;
+        Alert.alert('Daily match limit', detail?.message || 'You can play 3 matches per day. Come back tomorrow.');
       } else {
         const msg = e?.response?.data?.detail?.message || e?.response?.data?.detail || 'Could not start match';
-        alert(String(msg));
+        Alert.alert('Could not start match', String(msg));
       }
     } finally {
       setStarting(false);
@@ -73,18 +76,18 @@ export default function Lobby() {
           </View>
 
           <View style={styles.statsRow}>
-            <Pill icon={<Text>🪙</Text>} value={user.coins} label="Coins" />
-            <Pill icon={<Text>🎫</Text>} value={user.tickets} label="Tickets" />
-            <Pill icon={<Text>🏆</Text>} value={user.rank_points} label={user.league} />
+            <Pill icon={<Text>C</Text>} value={user.coins} label="Coins" />
+            <Pill icon={<Text>T</Text>} value={user.tickets} label="Tickets" />
+            <Pill icon={<Text>RP</Text>} value={user.rank_points} label={user.league} />
           </View>
 
           <LinearGradient colors={[theme.colors.primary, theme.colors.accent]} start={{x:0,y:0}} end={{x:1,y:1}} style={[styles.hero, compact && styles.heroCompact]}>
             <View style={{flex:1}}>
               <Text style={styles.heroLabel}>Quick Match</Text>
-              <Text style={styles.heroTitle}>1 vs 3 Bots</Text>
-              <Text style={styles.heroSub}>Entry: 1 🎫 or 100 🪙 • ~5 min</Text>
+              <Text style={styles.heroTitle}>Mau Mau Match</Text>
+              <Text style={styles.heroSub}>Entry: 1 ticket or 100 coins - 3 matches/day</Text>
             </View>
-            <TouchableOpacity activeOpacity={0.9} onPress={startMatch} disabled={starting} style={[styles.heroBtn, compact && styles.heroBtnCompact, starting && { opacity: 0.7 }]}>
+            <PressScale onPress={startMatch} disabled={starting} style={[styles.heroBtn, compact && styles.heroBtnCompact, starting && { opacity: 0.7 }]}>
               {starting ? (
                 <ActivityIndicator color="#0E0B1F" />
               ) : (
@@ -93,38 +96,38 @@ export default function Lobby() {
                   <Ionicons name="play" color="#0E0B1F" size={20} />
                 </>
               )}
-            </TouchableOpacity>
+            </PressScale>
           </LinearGradient>
 
           <View style={[styles.gridRow, compact && styles.gridColumn]}>
-            <TouchableOpacity style={[styles.tile, { backgroundColor: '#3B2A78' }]} onPress={() => router.push('/(tabs)/earn')}>
+            <PressScale style={[styles.tile, { backgroundColor: '#3B2A78' }]} onPress={() => router.push('/(tabs)/earn')}>
               <Ionicons name="gift" color={theme.colors.gold} size={28} />
               <Text style={styles.tileTitle}>Daily Reward</Text>
               <Text style={styles.tileSub}>{dailyAvail ? 'Available now!' : 'Come back tomorrow'}</Text>
               {dailyAvail && <View style={styles.badgeDot} />}
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.tile, { backgroundColor: '#0C4A6E' }]} onPress={() => router.push('/(tabs)/missions')}>
+            </PressScale>
+            <PressScale style={[styles.tile, { backgroundColor: '#0C4A6E' }]} onPress={() => router.push('/(tabs)/missions')}>
               <Ionicons name="trophy" color={theme.colors.warning} size={28} />
               <Text style={styles.tileTitle}>Missions</Text>
               <Text style={styles.tileSub}>Daily goals</Text>
-            </TouchableOpacity>
+            </PressScale>
           </View>
           <View style={[styles.gridRow, compact && styles.gridColumn]}>
-            <TouchableOpacity style={[styles.tile, { backgroundColor: '#5B21B6' }]} onPress={() => router.push('/(tabs)/leaderboard')}>
+            <PressScale style={[styles.tile, { backgroundColor: '#5B21B6' }]} onPress={() => router.push('/(tabs)/leaderboard')}>
               <Ionicons name="podium" color="#fff" size={28} />
               <Text style={styles.tileTitle}>Leaderboard</Text>
               <Text style={styles.tileSub}>Climb leagues</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.tile, { backgroundColor: '#155E75' }]} onPress={() => router.push('/(tabs)/earn')}>
+            </PressScale>
+            <PressScale style={[styles.tile, { backgroundColor: '#155E75' }]} onPress={() => router.push('/(tabs)/earn')}>
               <Ionicons name="gift" color={theme.colors.accent} size={28} />
               <Text style={styles.tileTitle}>Earn</Text>
-              <Text style={styles.tileSub}>Free coins · ads</Text>
-            </TouchableOpacity>
+              <Text style={styles.tileSub}>30s ads - no purchase</Text>
+            </PressScale>
           </View>
 
           <View style={styles.rulesCard}>
             <Text style={styles.rulesTitle}>How to Win</Text>
-            <Text style={styles.rulesText}>Be the first to play all your cards. Match the suit 🔥🌊🍃⚡ or the value. Use action cards strategically: Skip, Reverse, +2, Shield, Wild.</Text>
+            <Text style={styles.rulesText}>Be the first to play all your cards. Match the suit or the value. Use action cards strategically: Skip, Reverse, +2, Block, Wild.</Text>
           </View>
 
           <NoMoneyFooter />

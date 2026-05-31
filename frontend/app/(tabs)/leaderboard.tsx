@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
 import { api } from '../../src/services/api';
 import { NoMoneyFooter } from '../../src/components/UI';
@@ -13,7 +14,12 @@ interface LeaderboardEntry {
   league: string;
   level: number;
   rank_points: number;
+  gender?: 'male' | 'female' | null;
   is_me?: boolean;
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?';
 }
 
 export default function Leaderboard() {
@@ -50,11 +56,15 @@ export default function Leaderboard() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
           ListEmptyComponent={<Text style={{ color: theme.colors.textMuted, textAlign: 'center', marginTop: 40 }}>No entries yet</Text>}
           renderItem={({ item }) => {
-            const medal = item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : null;
+            const isTop = item.rank <= 3;
+            const avatarColor = item.gender === 'female' ? '#EC4899' : '#2563EB';
             return (
               <View style={[styles.row, item.is_me && styles.rowMe]}>
                 <View style={styles.rankBox}>
-                  {medal ? <Text style={styles.medal}>{medal}</Text> : <Text style={styles.rankNum}>#{item.rank}</Text>}
+                  {isTop ? <Ionicons name="trophy" size={20} color={theme.colors.gold} /> : <Text style={styles.rankNum}>#{item.rank}</Text>}
+                </View>
+                <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+                  <Text style={styles.avatarText}>{initials(item.username)}</Text>
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.name}>{item.username}{item.is_me ? '  (you)' : ''}</Text>
@@ -85,8 +95,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surface, padding: 12, borderRadius: theme.radius.md, marginBottom: 8, borderWidth: 1, borderColor: theme.colors.border },
   rowMe: { borderColor: theme.colors.accent, backgroundColor: '#1E2C5E' },
   rankBox: { width: 44, alignItems: 'center' },
-  medal: { fontSize: 22 },
   rankNum: { color: theme.colors.textMuted, fontWeight: '900' },
+  avatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   name: { color: theme.colors.text, fontSize: 15, fontWeight: '800' },
   leaguePill: { borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   leagueText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },

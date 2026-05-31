@@ -3,7 +3,12 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, initializeAuth } from 'firebase/auth';
 import * as FirebaseAuth from 'firebase/auth';
 
-const firebaseApiKey = (process.env.EXPO_PUBLIC_FIREBASE_API_KEY || '').trim();
+const firebaseApiKey = (
+  process.env.EXPO_PUBLIC_FIREBASE_API_KEY ||
+  process.env.FIREBASE_API_KEY ||
+  process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
+  ''
+).trim();
 const firebaseApiKeyMissing =
   !firebaseApiKey ||
   firebaseApiKey === 'OVDE API KEY' ||

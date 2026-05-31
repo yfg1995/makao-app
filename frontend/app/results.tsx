@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -45,9 +45,12 @@ export default function Results() {
       const code = e?.response?.data?.detail?.code;
       if (status === 402 || code === 'INSUFFICIENT_BALANCE') {
         setShowOOC(true);
+      } else if (status === 429 && code === 'DAILY_MATCH_LIMIT_REACHED') {
+        const detail = e?.response?.data?.detail;
+        Alert.alert('Daily match limit', detail?.message || 'You can play 3 matches per day. Come back tomorrow.');
       } else {
         const msg = e?.response?.data?.detail?.message || e?.response?.data?.detail || 'Could not start match';
-        alert(String(msg));
+        Alert.alert('Could not start match', String(msg));
       }
     } finally {
       setStarting(false);
@@ -65,10 +68,10 @@ export default function Results() {
           <Text style={styles.subtitle}>{won ? 'You shed all your cards first.' : `${winnerName} shed first.`}</Text>
 
           <View style={styles.statsCard}>
-            <Stat label="Coins" value={`+${coins}`} icon="🪙" />
-            <Stat label="Rank Points" value={`${rp >= 0 ? '+' : ''}${rp}`} icon="🏆" negative={rp < 0} />
-            <Stat label="XP" value={`+${xp}`} icon="✨" />
-            <Stat label="Duration" value={`${Math.floor(duration / 60)}m ${duration % 60}s`} icon="⏱" />
+            <Stat label="Coins" value={`+${coins}`} icon="C" />
+            <Stat label="Rank Points" value={`${rp >= 0 ? '+' : ''}${rp}`} icon="RP" negative={rp < 0} />
+            <Stat label="XP" value={`+${xp}`} icon="XP" />
+            <Stat label="Duration" value={`${Math.floor(duration / 60)}m ${duration % 60}s`} icon="Time" />
           </View>
 
           <Button title="Play Again" onPress={playAgain} loading={starting} fullWidth />
@@ -106,7 +109,7 @@ const styles = StyleSheet.create({
   subtitle: { color: theme.colors.textMuted, fontSize: 14, marginTop: 4, marginBottom: 22, textAlign: 'center' },
   statsCard: { width: '100%', backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, padding: 16, borderWidth: 1, borderColor: theme.colors.border, marginBottom: 24, gap: 8 },
   statRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
-  statIcon: { fontSize: 18, width: 28 },
+  statIcon: { color: theme.colors.accent, fontSize: 12, fontWeight: '900', width: 42 },
   statLabel: { color: theme.colors.textMuted, fontSize: 14, flex: 1 },
   statValue: { color: theme.colors.text, fontSize: 16, fontWeight: '900' },
 });

@@ -8,15 +8,15 @@ import { Button } from './UI';
 interface AdSimulatorModalProps {
   visible: boolean;
   onClose: () => void;
-  onComplete: () => void; // triggered after the user fully watches the 5s ad
-  duration?: number; // seconds (default 5)
+  onComplete: () => void; // triggered after the user fully watches the simulated ad
+  duration?: number; // seconds (default 30)
   adNumber?: number; // 1 or 2 (X of 2 for context)
   totalAds?: number;
 }
 
 /**
  * Fake/simulated rewarded ad. NEVER serves real ads.
- * Shows a 5 second counter, a faux "Sponsor" banner, and a Skip button that
+ * Shows a 30 second counter, a faux "Sponsor" banner, and a Skip button that
  * only becomes active once the timer hits zero. On complete it calls onComplete
  * exactly once and then onClose. Closing early discards the watch (no reward).
  */
@@ -24,7 +24,7 @@ export function AdSimulatorModal({
   visible,
   onClose,
   onComplete,
-  duration = 5,
+  duration = 30,
   adNumber,
   totalAds,
 }: AdSimulatorModalProps) {
@@ -77,7 +77,7 @@ export function AdSimulatorModal({
           <View style={styles.headerRow}>
             <View style={styles.sponsorTag}>
               <Ionicons name="megaphone" size={12} color="#0E0B1F" />
-              <Text style={styles.sponsorText}>SPONSORED · DEMO</Text>
+              <Text style={styles.sponsorText}>SPONSORED - DEMO</Text>
             </View>
             {totalAds ? (
               <Text style={styles.counter}>{adNumber}/{totalAds}</Text>

@@ -1,7 +1,12 @@
 import { AxiosHeaders, create, type AxiosInstance } from 'axios';
 import { storage } from '../utils/storage';
 
-const RAW_BASE = (process.env.EXPO_PUBLIC_BACKEND_URL || process.env.EXPO_BACKEND_URL || '').replace(/\/$/, '');
+const DEFAULT_BACKEND_URL = 'https://card-rush-arena.preview.emergentagent.com';
+const RAW_BASE = (
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  process.env.EXPO_BACKEND_URL ||
+  DEFAULT_BACKEND_URL
+).replace(/\/$/, '');
 const API_BASE = RAW_BASE ? `${RAW_BASE}/api` : '/api';
 
 export const api: AxiosInstance = create({
