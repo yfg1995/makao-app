@@ -6,7 +6,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://card-rush-arena.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://card-verse-battle.preview.emergentagent.com"
       },
       "android": {
         "buildType": "apk"
@@ -18,7 +18,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://card-rush-arena.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://card-verse-battle.preview.emergentagent.com"
       },
       "android": {
         "buildType": "app-bundle"

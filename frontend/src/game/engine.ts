@@ -66,7 +66,7 @@ function actionForRank(value: Rank): Action {
   if (value === '8') return 'SkipNext';
   if (value === 'J') return 'ChooseSuit';
   if (value === 'Q') return 'Reverse';
-  if (value === 'K') return 'PlayAgain';
+  if (value === 'A') return 'PlayAgain';
   return null;
 }
 
@@ -252,7 +252,7 @@ export function playCard(
   } else if (card.value === 'Q') {
     nextState.direction = (nextState.direction === 1 ? -1 : 1) as 1 | -1;
     nextState.turn = nextIndex(nextState, playerIdx);
-  } else if (card.value === 'K') {
+  } else if (card.value === 'A') {
     nextState.turn = playerIdx;
   } else {
     nextState.turn = nextIndex(nextState, playerIdx);
@@ -307,7 +307,7 @@ export function opponentTurn(state: GameState, playerIdx: number): GameState {
       else if (card.value === '8') score += 5.5;
       else if (card.value === 'J') score += player.hand.length <= 2 ? 7 : 3.5;
       else if (card.value === 'Q') score += 4.5;
-      else if (card.value === 'K') score += player.hand.length <= 2 ? 7 : 4;
+      else if (card.value === 'A') score += player.hand.length <= 2 ? 7 : 4;
       else score += rankScore(card.value) * 0.3;
       score += suitCounts[card.suit] * 0.22;
       return { card, score };

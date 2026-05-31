@@ -127,7 +127,7 @@ export default function Lobby() {
 
           <View style={styles.rulesCard}>
             <Text style={styles.rulesTitle}>How to Win</Text>
-            <Text style={styles.rulesText}>Match suit or rank and empty your hand first. 2 makes the previous player draw 4, 7 makes the next player draw 3, 8 skips, J changes suit, Q reverses direction, and K lets you play again.</Text>
+            <Text style={styles.rulesText}>Match suit or rank and empty your hand first. 2 makes the previous player draw 4, 7 makes the next player draw 3, 8 skips, J changes suit, Q reverses direction, and A lets you play again.</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
