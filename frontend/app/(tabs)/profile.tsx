@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
-import { Button, NoMoneyFooter } from '../../src/components/UI';
+import { Button } from '../../src/components/UI';
 import { useAuth } from '../../src/services/auth';
 import { api } from '../../src/services/api';
 
@@ -92,11 +92,9 @@ export default function Profile() {
 
           <View style={{ marginTop: 16, gap: 10 }}>
             <Button title="Settings" variant="secondary" onPress={() => router.push('/settings')} fullWidth />
-            <Button title="Legal & Disclaimers" variant="ghost" onPress={() => router.push('/legal')} fullWidth />
+            <Button title="App Info" variant="ghost" onPress={() => router.push('/legal')} fullWidth />
             <Button title="Sign Out" variant="danger" onPress={async () => { await signOut(); router.replace('/login'); }} fullWidth />
           </View>
-
-          <NoMoneyFooter />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>

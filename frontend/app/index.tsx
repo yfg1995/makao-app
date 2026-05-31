@@ -40,7 +40,6 @@ export default function Splash() {
       </Animated.View>
       <View style={styles.bottom}>
         <ActivityIndicator color={theme.colors.accent} />
-        <Text style={styles.disclaimer}>No gambling or betting. Virtual rewards only.</Text>
       </View>
     </LinearGradient>
   );
@@ -54,5 +53,4 @@ const styles = StyleSheet.create({
   title: { color: theme.colors.text, fontSize: 34, fontWeight: '900', marginTop: 20, letterSpacing: 0.5 },
   tagline: { color: theme.colors.textMuted, fontSize: 14, marginTop: 6, letterSpacing: 1.5 },
   bottom: { position: 'absolute', bottom: 60, alignItems: 'center', gap: 12 },
-  disclaimer: { color: theme.colors.textMuted, fontSize: 11 },
 });

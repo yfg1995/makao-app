@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { theme } from '../src/theme';
-import { Button, NoMoneyFooter } from '../src/components/UI';
+import { Button } from '../src/components/UI';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../src/services/api';
 import { useAuth } from '../src/services/auth';
@@ -78,7 +78,6 @@ export default function Results() {
           <View style={{ height: 10 }} />
           <Button title="Back to Lobby" variant="ghost" onPress={() => router.replace('/(tabs)/lobby')} fullWidth />
         </Animated.View>
-        <NoMoneyFooter />
         <OutOfCoinsModal
           visible={showOOC}
           onClose={() => setShowOOC(false)}

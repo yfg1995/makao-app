@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
-import { Button, NoMoneyFooter } from '../../src/components/UI';
+import { Button } from '../../src/components/UI';
 import { api } from '../../src/services/api';
 import { useAuth } from '../../src/services/auth';
 
@@ -75,8 +75,6 @@ export default function Missions() {
               </View>
             );
           })}
-
-          <NoMoneyFooter />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>

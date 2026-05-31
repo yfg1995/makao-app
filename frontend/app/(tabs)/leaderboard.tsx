@@ -5,7 +5,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
 import { api } from '../../src/services/api';
-import { NoMoneyFooter } from '../../src/components/UI';
 
 interface LeaderboardEntry {
   id: string;
@@ -82,7 +81,6 @@ export default function Leaderboard() {
               </View>
             );
           }}
-          ListFooterComponent={<NoMoneyFooter />}
         />
       </SafeAreaView>
     </LinearGradient>

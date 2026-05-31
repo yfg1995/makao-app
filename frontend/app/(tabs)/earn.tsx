@@ -29,14 +29,8 @@ interface DailyStatus {
 }
 
 /**
- * Earn screen - the main place to gain free coins.
- *
- * Rules:
- *   - No IAP, coin purchases, real-money winnings, betting, or gambling.
- *   - Virtual coins have no monetary value.
- *   - Coins can be earned by:
- *       1) Watching a pair of mock ads (2 ads = 100 coins)
- *       2) Claiming the daily reward
+ * Earn screen - the main place to gain coins by watching mock ads
+ * or claiming the daily reward.
  */
 export default function Earn() {
   const { user, refresh } = useAuth();
@@ -118,7 +112,7 @@ export default function Earn() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.accent} />}
         >
           <Text style={styles.heading}>Earn Coins</Text>
-          <Text style={styles.sub}>Free coins only. No IAP or coin purchases.</Text>
+          <Text style={styles.sub}>Watch ads, claim rewards, and keep playing.</Text>
 
           <View style={styles.balRow}>
             <Pill icon={<Text>🪙</Text>} value={user.coins} label="Coins" />
@@ -186,14 +180,6 @@ export default function Earn() {
             />
           </View>
 
-          {/* === Value notice === */}
-          <View style={styles.legalCard}>
-            <Ionicons name="shield-checkmark" size={20} color={theme.colors.success} />
-            <Text style={styles.legalText}>
-              No gambling, no betting, no real-money winnings, no IAP or coin
-              purchases. Coins have no cash value; rewards are virtual only.
-            </Text>
-          </View>
         </ScrollView>
       </SafeAreaView>
 
@@ -246,15 +232,4 @@ const styles = StyleSheet.create({
   dailyIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3B2A05', borderRadius: 12 },
   dailyTitle: { color: theme.colors.text, fontSize: 15, fontWeight: '900' },
   dailySub: { color: theme.colors.textMuted, fontSize: 12, marginTop: 2 },
-
-  legalCard: {
-    flexDirection: 'row',
-    gap: 10,
-    padding: 14,
-    borderRadius: theme.radius.md,
-    backgroundColor: '#0F3B2D',
-    borderWidth: 1,
-    borderColor: theme.colors.success,
-  },
-  legalText: { color: theme.colors.text, fontSize: 12, lineHeight: 17, flex: 1, minWidth: 220 },
 });

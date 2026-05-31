@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/services/auth';
-import { Pill, NoMoneyFooter, PressScale } from '../../src/components/UI';
+import { Pill, PressScale } from '../../src/components/UI';
 import { theme } from '../../src/theme';
 import { api } from '../../src/services/api';
 import { OutOfCoinsModal } from '../../src/components/OutOfCoinsModal';
@@ -121,7 +121,7 @@ export default function Lobby() {
             <PressScale style={[styles.tile, { backgroundColor: '#155E75' }]} onPress={() => router.push('/(tabs)/earn')}>
               <Ionicons name="gift" color={theme.colors.accent} size={28} />
               <Text style={styles.tileTitle}>Earn</Text>
-              <Text style={styles.tileSub}>30s ads - no purchase</Text>
+              <Text style={styles.tileSub}>30s ads</Text>
             </PressScale>
           </View>
 
@@ -129,8 +129,6 @@ export default function Lobby() {
             <Text style={styles.rulesTitle}>How to Win</Text>
             <Text style={styles.rulesText}>Match suit or rank and empty your hand first. 2 makes the previous player draw 4, 7 makes the next player draw 3, 8 skips, J changes suit, Q reverses direction, and K lets you play again.</Text>
           </View>
-
-          <NoMoneyFooter />
         </ScrollView>
       </SafeAreaView>
 

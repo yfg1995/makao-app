@@ -29,8 +29,7 @@ interface OutOfCoinsModalProps {
 
 /**
  * Shown when /match/start returns 402 INSUFFICIENT_BALANCE or when a player
- * proactively wants to top up via ads. Offers ONLY: watch mock ad pairs and
- * claim daily reward. No IAP or coin purchase paths exist.
+ * wants to earn more coins via mock ads or the daily reward.
  */
 export function OutOfCoinsModal({ visible, onClose, onRewarded, onGoToEarn, currentCoins, currentTickets }: OutOfCoinsModalProps) {
   const [progress, setProgress] = useState<AdProgress | null>(null);
@@ -125,9 +124,6 @@ export function OutOfCoinsModal({ visible, onClose, onRewarded, onGoToEarn, curr
               You do not have enough to start a match (need 1 ticket or 100 coins).
               You currently have {currentTickets} tickets - {currentCoins} coins.
             </Text>
-            <Text style={styles.legal}>
-              No IAP or coin purchases. Rewards are virtual only and coins have no cash value.
-            </Text>
 
             {/* Watch Ad Card */}
             <LinearGradient colors={[theme.colors.primary, theme.colors.accent]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.actionCard}>
@@ -193,7 +189,6 @@ const styles = StyleSheet.create({
   title: { color: theme.colors.text, fontSize: 20, fontWeight: '900', flex: 1 },
   closeBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   sub: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 8 },
-  legal: { color: theme.colors.warning, fontSize: 11, lineHeight: 16, marginBottom: 14, fontStyle: 'italic' },
   actionCard: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', padding: 14, borderRadius: theme.radius.lg, marginBottom: 12 },
   actionTitle: { color: '#fff', fontWeight: '900', fontSize: 15 },
   actionSub: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 2 },

@@ -127,14 +127,6 @@ export function SectionTitle({ children, right }: { children: React.ReactNode; r
   );
 }
 
-export function NoMoneyFooter() {
-  return (
-    <Text style={styles.disclaimer}>
-      No gambling, no betting, no real-money winnings, no IAP or coin purchases. Coins have no cash value; rewards are virtual only.
-    </Text>
-  );
-}
-
 const styles = StyleSheet.create({
   btn: { borderRadius: theme.radius.pill, overflow: 'hidden', minHeight: 48, justifyContent: 'center' },
   btnSmall: { minHeight: 36 },
@@ -152,5 +144,4 @@ const styles = StyleSheet.create({
   card: { backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, padding: 16, borderWidth: 1, borderColor: theme.colors.border },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 16 },
   sectionTitle: { color: theme.colors.text, fontSize: 18, fontWeight: '800' },
-  disclaimer: { color: theme.colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 12, paddingHorizontal: 16 },
 });

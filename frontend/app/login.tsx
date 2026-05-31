@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/services/auth';
-import { Button, NoMoneyFooter } from '../src/components/UI';
+import { Button } from '../src/components/UI';
 import { theme } from '../src/theme';
 
 type AuthMode = 'register' | 'login';
@@ -264,7 +264,7 @@ export default function Login() {
               </LinearGradient>
             </Animated.View>
             <Text style={styles.title}>Card Rush Arena</Text>
-            <Text style={styles.subtitle}>Fast Mau Mau matches, clean virtual rewards, no purchases.</Text>
+            <Text style={styles.subtitle}>Fast Mau Mau matches on mobile.</Text>
           </Animated.View>
 
           <Animated.View style={[styles.card, cardIntroStyle]}>
@@ -392,7 +392,6 @@ export default function Login() {
             <Text style={styles.fine}>Guest progress lives on this device. Email login keeps your account available after reinstall or device change.</Text>
           </Animated.View>
 
-          <NoMoneyFooter />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>

@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../src/theme';
-import { Button, NoMoneyFooter } from '../src/components/UI';
+import { Button } from '../src/components/UI';
 import { storage } from '../src/utils/storage';
 import { useAuth } from '../src/services/auth';
 
@@ -54,17 +54,15 @@ export default function Settings() {
           <Text style={styles.section}>About</Text>
           <View style={styles.card}>
             <TouchableOpacity style={styles.linkRow} onPress={() => router.push('/legal')}>
-              <Text style={styles.linkText}>Legal & Disclaimers</Text>
+              <Text style={styles.linkText}>App Info</Text>
               <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
             </TouchableOpacity>
             <Info label="Version" value="1.0.0 (MVP)" />
-            <Info label="Ads" value="Mocked (no real ads)" />
+            <Info label="Ads" value="Demo rewards" />
           </View>
 
           <View style={{ height: 16 }} />
           <Button title="Sign Out" variant="danger" onPress={async () => { await signOut(); router.replace('/login'); }} fullWidth />
-
-          <NoMoneyFooter />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
