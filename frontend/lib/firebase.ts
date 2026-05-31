@@ -20,7 +20,7 @@ const firebaseConfig = {
   projectId: 'card-rush-arena-makao',
   storageBucket: 'card-rush-arena-makao.firebasestorage.app',
   messagingSenderId: '800745763611',
-  appId: '1:800745763611:web:cdd39583341d8723aed9be',
+  appId: '1:800745763611:web:48d219b862fe7e02aed9be',
 };
 
 export function assertFirebaseConfigured() {
