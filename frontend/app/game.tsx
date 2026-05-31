@@ -186,7 +186,6 @@ export default function GameScreen() {
   }
 
   const myTurn = state.turn === 0 && state.winner === null;
-  const mustDrawStack = state.pendingDraw > 0;
   const activeName = state.players[state.turn]?.name || '';
 
   return (
@@ -207,65 +206,64 @@ export default function GameScreen() {
           </View>
         </View>
 
-        <View style={styles.opponentsRow}>
-          {state.players.slice(1).map((player, idx) => {
-            const realIdx = idx + 1;
-            const isActive = state.turn === realIdx;
-            return (
-              <View
-                key={player.id}
-                style={[
-                  styles.opponentSlot,
-                  { width: opponentSlotWidth },
-                  isActive && styles.opponentSlotActive,
-                ]}
-              >
-                <View style={[styles.avatar, { backgroundColor: player.avatarColor }]}>
-                  <Text style={styles.avatarText}>{playerInitials(player.avatarName)}</Text>
-                </View>
-                <Text style={[styles.opponentName, isActive && { color: theme.colors.accent }]} numberOfLines={1}>
-                  {player.name}
-                </Text>
-                <View style={styles.cardCountRow}>
-                  <Ionicons name="albums" size={13} color={theme.colors.textMuted} />
-                  <Text style={styles.opponentCount}>{player.hand.length}</Text>
-                </View>
-                {isActive ? <Text style={styles.turnNote}>{opponentNote}</Text> : null}
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={[styles.tableCenter, compact && styles.tableCenterCompact]}>
-          <PressScale onPress={onDraw} disabled={!myTurn} style={{ opacity: myTurn ? 1 : 0.6 }}>
-            <View style={styles.drawPileWrap}>
-              <View style={[styles.cardShadow, { width: tableCardWidth, height: tableCardWidth * 1.45 }]} />
-              <CardView card={{ id: 'back', suit: 'Hearts', value: 'A', action: null }} hidden width={tableCardWidth} />
-              <Text style={styles.pileLabel}>Draw ({state.drawPile.length})</Text>
-              {mustDrawStack && myTurn ? (
-                <View style={styles.pendingBadge}>
-                  <Text style={styles.pendingText}>+{state.pendingDraw}</Text>
-                </View>
-              ) : null}
+        <View style={styles.boardShell}>
+          <View style={styles.tableSurface}>
+            <View style={styles.opponentsRow}>
+              {state.players.slice(1).map((player, idx) => {
+                const realIdx = idx + 1;
+                const isActive = state.turn === realIdx;
+                return (
+                  <View
+                    key={player.id}
+                    style={[
+                      styles.opponentSlot,
+                      { width: opponentSlotWidth },
+                      isActive && styles.opponentSlotActive,
+                    ]}
+                  >
+                    <View style={[styles.avatar, { backgroundColor: player.avatarColor }]}>
+                      <Text style={styles.avatarText}>{playerInitials(player.avatarName)}</Text>
+                    </View>
+                    <Text style={[styles.opponentName, isActive && { color: '#FFE08A' }]} numberOfLines={1}>
+                      {player.name}
+                    </Text>
+                    <View style={styles.cardCountRow}>
+                      <Ionicons name="albums" size={13} color="#F7D98C" />
+                      <Text style={styles.opponentCount}>{player.hand.length}</Text>
+                    </View>
+                    {isActive ? <Text style={styles.turnNote}>{opponentNote}</Text> : null}
+                  </View>
+                );
+              })}
             </View>
-          </PressScale>
 
-          <View style={{ width: compact ? 18 : 28 }} />
+            <View style={[styles.tableCenter, compact && styles.tableCenterCompact]}>
+              <PressScale onPress={onDraw} disabled={!myTurn} style={{ opacity: myTurn ? 1 : 0.6 }}>
+                <View style={styles.drawPileWrap}>
+                  <View style={[styles.cardShadow, { width: tableCardWidth, height: tableCardWidth * 1.45 }]} />
+                  <CardView card={{ id: 'back', suit: 'Hearts', value: 'A', action: null }} hidden width={tableCardWidth} />
+                  <Text style={styles.pileLabel}>Draw ({state.drawPile.length})</Text>
+                </View>
+              </PressScale>
 
-          <View style={styles.discardWrap}>
-            <CardView card={top} width={tableCardWidth + 10} />
-            <Text style={styles.pileLabel}>Discard</Text>
+              <View style={{ width: compact ? 18 : 28 }} />
+
+              <View style={styles.discardWrap}>
+                <CardView card={top} width={tableCardWidth + 10} />
+                <Text style={styles.pileLabel}>Discard</Text>
+              </View>
+            </View>
+
+            <View style={styles.statusRow}>
+              <Text style={styles.status} numberOfLines={2}>
+                {state.winner !== null
+                  ? `${state.players[state.winner].name} wins!`
+                  : myTurn
+                    ? 'Your turn - match suit/rank or draw'
+                    : `${activeName} is ${opponentNote}`}
+              </Text>
+            </View>
           </View>
-        </View>
-
-        <View style={styles.statusRow}>
-          <Text style={styles.status} numberOfLines={2}>
-            {state.winner !== null
-              ? `${state.players[state.winner].name} wins!`
-              : myTurn
-                ? (mustDrawStack ? `Play a 7 or draw +${state.pendingDraw}` : 'Your turn - match suit/rank or draw')
-                : `${activeName} is ${opponentNote}`}
-          </Text>
         </View>
 
         <View style={styles.handArea}>
@@ -291,7 +289,7 @@ export default function GameScreen() {
           </ScrollView>
           <View style={styles.handActions}>
             <Button
-              title={mustDrawStack ? `Take +${state.pendingDraw}` : 'Draw'}
+              title="Draw"
               variant="secondary"
               small
               onPress={onDraw}
@@ -342,26 +340,26 @@ const styles = StyleSheet.create({
   suitIndicator: { alignItems: 'center', backgroundColor: 'rgba(5,31,24,0.82)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
   suitIndicatorLabel: { color: '#B7D8C9', fontSize: 9, letterSpacing: 1.2, fontWeight: '700' },
   suitGlyph: { fontSize: 16, fontWeight: '900' },
+  boardShell: { flex: 1, marginHorizontal: 10, marginBottom: 8, padding: 10, borderRadius: 12, backgroundColor: '#7A4A1F', borderWidth: 3, borderColor: '#D59B43', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 10, elevation: 6 },
+  tableSurface: { flex: 1, borderRadius: 8, backgroundColor: '#8D7A58', borderWidth: 2, borderColor: '#4C2E16', paddingVertical: 12, overflow: 'hidden' },
   opponentsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingHorizontal: 8, marginTop: 4 },
-  opponentSlot: { backgroundColor: 'rgba(5,31,24,0.74)', paddingHorizontal: 8, paddingVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(236,255,244,0.16)', alignItems: 'center', minHeight: 120 },
-  opponentSlotActive: { borderColor: theme.colors.accent, shadowColor: theme.colors.accent, shadowOpacity: 0.45, shadowRadius: 8, elevation: 4 },
+  opponentSlot: { backgroundColor: '#5B351C', paddingHorizontal: 8, paddingVertical: 8, borderRadius: 8, borderWidth: 2, borderColor: '#F2B544', alignItems: 'center', minHeight: 112, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  opponentSlotActive: { borderColor: '#FFE08A', shadowColor: '#FFE08A', shadowOpacity: 0.5, shadowRadius: 8, elevation: 5 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
   avatarText: { color: '#fff', fontSize: 12, fontWeight: '900' },
   opponentName: { color: theme.colors.text, fontSize: 11, fontWeight: '900', maxWidth: '100%' },
   cardCountRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
-  opponentCount: { color: theme.colors.textMuted, fontSize: 12, fontWeight: '800' },
-  turnNote: { color: theme.colors.accent, fontSize: 9, marginTop: 3, fontStyle: 'italic', textAlign: 'center' },
+  opponentCount: { color: '#F7D98C', fontSize: 12, fontWeight: '800' },
+  turnNote: { color: '#FFE08A', fontSize: 9, marginTop: 3, fontStyle: 'italic', textAlign: 'center' },
   tableCenter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 18, marginBottom: 4 },
   tableCenterCompact: { marginTop: 12 },
   drawPileWrap: { alignItems: 'center', position: 'relative' },
   cardShadow: { position: 'absolute', top: 5, left: 5, borderRadius: 8, backgroundColor: '#03150F', opacity: 0.45 },
   discardWrap: { alignItems: 'center' },
   pileLabel: { color: '#CDEBDD', fontSize: 11, marginTop: 6 },
-  pendingBadge: { position: 'absolute', top: -6, right: -10, backgroundColor: theme.colors.danger, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
-  pendingText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   statusRow: { alignItems: 'center', marginTop: 8, marginBottom: 4, paddingHorizontal: 18 },
   status: { color: '#FDE68A', fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  handArea: { marginTop: 'auto', backgroundColor: 'rgba(3,21,15,0.78)', paddingTop: 8, paddingBottom: 8, borderTopWidth: 1, borderTopColor: 'rgba(236,255,244,0.16)' },
+  handArea: { marginTop: 'auto', backgroundColor: '#21163E', paddingTop: 8, paddingBottom: 8, borderTopWidth: 1, borderTopColor: '#5C4A91' },
   handLabel: { color: '#B7D8C9', fontSize: 11, letterSpacing: 1.2, fontWeight: '700', paddingHorizontal: 16 },
   handScroll: { gap: 8, paddingVertical: 8, alignItems: 'center' },
   handActions: { flexDirection: 'row', justifyContent: 'center', marginTop: 2 },
